@@ -1,0 +1,183 @@
+from discord.ext import commands  # For implementation of bot commands.
+from discord import User, Member, Role  # For type-hinting and exceptions.
+import functions as func  # Shared function library.
+from functions import clean  # Shorthand for cleaning output.
+from copy import copy  # For copying context.
+from typing import Optional, Union  # For type-hinting.
+import aiohttp  # To send info to mystbin.
+from io import StringIO  # To return eval output.
+from textwrap import indent, wrap  # To format eval output.
+from contextlib import redirect_stdout  # To return eval output.
+from traceback import format_exc  # To return eval output.
+from aiohttp import ClientSession
+
+
+def setup(bot: func.TravusBotBase):
+    """Setup function ran when module is loaded."""
+    bot.add_cog(DevCog(bot))  # Add cog and command help info.
+    bot.add_module("Dev", "[Travus](https://github.com/Travus):\n\tEval command\n\tRoleID command\n\tChannelID command\n\n[Rapptz](https://github.com/Rapptz):\n\tSudo command",
+                   """This module includes developer functionality that supply information useful for programming, such as IDs, as well as
+                   some debug and testing options such as code execution and remote command execution. Also allows checking the most recent error.""",
+                   "[Rapptz](https://github.com/Rapptz):\n\tEval example\n\n[nerdstep710](https://github.com/nerdstep710):\n\tMystbin example")
+    bot.add_command_help(DevCog.eval, "Dev", {"owner_only": True}, ["return 4 + 7", "return channel.id"])
+    bot.add_command_help(DevCog.sudo, "Dev", {"owner_only": True}, ["travus bot_room help", "118954681241174016 about dev"])
+    bot.add_command_help(DevCog.roleids, "Dev", {"guild_only": True, "perms": ["Manage Roles: Yes"]}, ["all bot_room", "all dm", "muted"])
+    bot.add_command_help(DevCog.channelids, "Dev", {"guild_only": True, "perms": ["Manage Channels: Yes"]}, ["all bot_room", "all dm", "general"])
+
+
+def teardown(bot: func.TravusBotBase):
+    """Teardown function ran when module is unloaded."""
+    bot.remove_cog("DevCog")  # Remove cog and command help info.
+    bot.remove_module("Dev")
+    bot.remove_command_help(DevCog)
+
+
+async def mystbin_send(text: str, line_length: int = None) -> Optional[str]:
+    """Send the text if it's short enough, otherwise links to a Mystbin of the text."""
+    if text is not None:
+        if line_length:
+            lines = text.split("\n")
+            for n in range(len(lines)):
+                if len(lines[n]) > line_length:
+                    wrapped = wrap(lines[n], width=line_length)
+                    lines[n] = ""
+                    for w_line in wrapped[:-1]:
+                        lines[n] += f"{w_line} ↩\n"
+                    lines[n] += wrapped[-1]
+            text = "\n".join(lines)
+        async with ClientSession() as session:
+            key = (await (await session.post('https://mystb.in/documents', data=text.encode())).json())["key"]
+            return f"https://mystb.in/{key}"
+    else:
+        return None
+
+
+class DevCog(commands.Cog):
+    """Cog that holds dev functionality."""
+
+    def __init__(self, bot: func.TravusBotBase):
+        """Initialization function loading bot object for cog."""
+        self.bot = bot
+        self._last_result = None
+
+    async def _mystbin_send(self, ctx: commands.Context, text: str):
+        """Send the text if it's short enough, otherwise links to a Mystbin of the text."""
+        if text is not None:
+            token = (await func.db_get_one(self.bot.db_con, "SELECT value FROM settings WHERE flag = ?", ("discord_token",)))[0]
+            text = text.replace(token, "<TOKEN REDACTED>") if isinstance(text, str) else text  # Remove the token from the output.
+            if len(text) > 1950:
+                lines = text.split("\n")
+                for n in range(len(lines)):
+                    if len(lines[n]) > 198:
+                        wrapped = wrap(lines[n], width=198)
+                        lines[n] = ""
+                        for w_line in wrapped[:-1]:
+                            lines[n] += f"{w_line} ↩\n"
+                        lines[n] += wrapped[-1]
+                text = "\n".join(lines)
+                async with aiohttp.ClientSession() as session:
+                    key = (await (await session.post('https://mystb.in/documents', data=text.encode())).json())["key"]
+                    await ctx.send(f'https://mystb.in/{key}')
+            else:
+                await ctx.send(f"```py\n{text}\n```")
+
+    @staticmethod
+    def cleanup_code(content: str) -> str:
+        """Automatically removes code blocks from the code."""
+        if content.startswith('```') and content.endswith('```'):
+            return '\n'.join(content.split('\n')[1:-1])
+        return content.strip('` \n')
+
+    # noinspection PyBroadException
+    @commands.is_owner()
+    @commands.command(name="eval", aliases=["exec"], usage="<CODE TO EXECUTE>")
+    async def eval(self, ctx: commands.Context, *, body: str):
+        """This command evaluates code sent via Discord, and sends back any return value and output in a discord python
+        code block. This can be single-line or multi-line via a code block. If the output is too long to fit in a
+        discord message a mystbin link with the response will be sent. Mystbin output will be line-wrapped to make it
+        more readable."""
+        stdout = StringIO()
+        env = {'bot': self.bot, 'ctx': ctx, 'channel': ctx.channel, 'author': ctx.author, 'guild': ctx.guild,
+               'message': ctx.message, '_': self._last_result}
+        env.update(globals())
+        try:
+            exec(f'async def function():\n{indent(self.cleanup_code(body), "  ")}', env)
+        except Exception as e:
+            response = f'{e.__class__.__name__}: {e}'
+            return await self._mystbin_send(ctx, response)
+        function = env['function']
+        try:
+            with redirect_stdout(stdout):
+                ret = await function()
+        except Exception:
+            value = stdout.getvalue()
+            response = f'{value}{format_exc()}'
+        else:
+            value = stdout.getvalue()
+            if ret is None:
+                response = value or None
+            else:
+                self._last_result = ret
+                response = f"{value}{ret}"
+        await self._mystbin_send(ctx, response)
+
+    @commands.is_owner()
+    @commands.command(name="sudo", usage="<USER> (CHANNEL) <COMMAND>")
+    async def sudo(self, ctx: commands.Context, user: User, channel: Optional[func.GlobalTextChannel], *, command: str):
+        """This command lets you run commands as another user, optionally in other channels. If the channel argument is
+        skipped and the bot fails to parse the argument as a channel it will ignore the channel argument and move on to
+        parsing the command instead. In this case the command will be sent from the channel you are currently in."""
+        if isinstance(channel, Member):
+            await ctx.send("Cannot sudo into DMs. ")
+            return
+        new_ctx = copy(ctx.message)
+        new_ctx.channel = channel or ctx.channel
+        new_ctx.author = new_ctx.channel.guild.get_member(user.id) or user
+        new_ctx.content = ctx.prefix + command
+        new_ctx = await self.bot.get_context(new_ctx, cls=type(ctx))
+        await self.bot.invoke(new_ctx)
+
+    @commands.guild_only()
+    @commands.has_permissions(manage_roles=True)
+    @commands.command(name="roleids", aliases=["roleid"], usage="<ROLE/all> (OUTPUT CHANNEL/dm)")
+    async def roleids(self, ctx: commands.Context, role: Union[Role, str], resp_channel: Optional[func.GlobalTextChannel]):
+        """This command gives you role IDs of one or all roles in the server depending on if a role or `all` is passed
+        along. You can also pass along a channel, in this server or otherwise, in which case the response is sent in
+        that channel. Sending `dm` instead of a channel will send you the result in direct messages."""
+        if isinstance(role, str) and role.lower() == "all":
+            response = "\n".join([f"{role.name}: {role.id}" for role in reversed(ctx.guild.roles)])
+        elif isinstance(role, str):
+            raise commands.BadArgument("Role could not be parsed and string is not 'all'.")
+        else:
+            response = f"{role.name}: {role.id}"
+        await func.send_in_global_channel(ctx, resp_channel, f"```{response}```")
+
+    @commands.guild_only()
+    @commands.has_permissions(manage_channels=True)
+    @commands.command(name="channelids", aliases=["channelid"], usage="<CHANNEL/all> (OUTPUT CHANNEL/dm)")
+    async def channelids(self, ctx: commands.Context, channel: Union[func.GlobalChannel, str], resp_channel: Optional[func.GlobalTextChannel]):
+        """This command gives you channel IDs of one or all channels in the server depending on if a channel or `all`
+        is passed along. You can also pass along a second channel, in this server or otherwise, in which case the
+        response is sent in that channel. Sending `dm` instead of a second channel will send you the result in direct
+        messages."""
+        response = ""
+        if isinstance(channel, str) and channel.lower() == "all":
+            response = "\n".join([f"{clean(ctx, channel.name)}: {channel.id}" for channel in ctx.guild.text_channels])
+            response += "\n" + "\n".join([f"{clean(ctx, channel.name)}: {channel.id}" for channel in ctx.guild.voice_channels])
+        elif isinstance(channel, str):
+            raise commands.BadArgument("Channel could not be parsed and string is not 'all'.")
+        else:
+            if hasattr(channel, "name") and hasattr(channel, "id"):
+                response = f"{channel.name}: {channel.id}"
+        await func.send_in_global_channel(ctx, resp_channel, f"```{response}```")
+
+    @commands.has_permissions(administrator=True)
+    @commands.command(name="lasterror", aliases=["lerror", "_error"])
+    async def lasterror(self, ctx: commands.Context):
+        """This command shows the last error the bot has encountered. Errors encountered while loading modules will
+        not be listed by this command. To see the last error encountered while loading modules see the `module error`
+        command. This command retains this information until another error replaces it, or the bot shuts down."""
+        if self.bot.last_error:
+            await ctx.send(func.clean(ctx, self.bot.last_error))
+        else:
+            await ctx.send("There have not been any errors since the last restart.")
