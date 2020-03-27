@@ -180,7 +180,7 @@ if __name__ == "__main__":
             bot_additional_credits = await func.db_get_one(bot.db_con, "SELECT value FROM settings WHERE flag = ?", ("bot_additional_credits", ))
             if bot_additional_credits:
                 bot_additional_credits = bot_additional_credits[0].replace("\\n", "\n").replace("\\r", "\n").replace("\\t", "\t")
-            bot.add_module(bot.user.name, bot_author, bot_description, bot_additional_credits, bot.user.avatar_url)  # Add about command for bot.
+            bot.add_module(bot.user.name, bot_author, None, bot_description, bot_additional_credits, bot.user.avatar_url)  # Add about command for bot.
             bot.add_command_help([com for com in bot.commands if com.name == "help"][0], "Core", None, ["", "info", "clear"])  # Add help info for help command.
             try:  # Try loading core_commands.py file containing basic non-unloadable commands.
                 if "core_commands.py" in os.listdir("."):

@@ -1,7 +1,7 @@
 from discord.ext import commands  # For implementation of bot commands.
 import functions as func  # Shared function library.
 from functions import clean  # Shorthand for cleaning output.
-from discord import Activity, ActivityType  # For bot status
+from discord import Embed, Activity, ActivityType  # For bot status
 from os import listdir  # To check files on disk.
 from asyncio import sleep as asleep  # For waiting asynchronously.
 
@@ -26,6 +26,7 @@ def setup(bot: func.TravusBotBase):
     bot.add_command_help(CoreFunctionalityCog.command_show, "Core", {"guild_only": True, "perms": ["Administrator: Yes"]}, ["module", "balance"])
     bot.add_command_help(CoreFunctionalityCog.command_hide, "Core", {"guild_only": True, "perms": ["Administrator: Yes"]}, ["module", "balance"])
     bot.add_command_help(CoreFunctionalityCog.about, "Core", None, ["", "fun"])
+    bot.add_command_help(CoreFunctionalityCog.usage, "Core", None, ["", "dev"])
     bot.add_command_help(CoreFunctionalityCog.shutdown, "Core", {"owner": True}, ["", "1h", "1h30m", "10m-30s", "2m30s"])
 
 
@@ -94,7 +95,7 @@ class CoreFunctionalityCog(commands.Cog):
         space at the start and end of messages. The prefix is saved across reboots. Setting the prefix to `remove` will remove the prefix.
         The bot will always listen to pings as if they were a prefix, regardless of if there is another prefix set or not."""
         self.bot.prefix = new_prefix if new_prefix.lower() != "remove" else None  # Is user sends 'remove' prefix is set to None.
-        await func.db_set(self.bot.db_con, "UPDATE settings SET value = ? WHERE flag = 'prefix'", (new_prefix if new_prefix.lower() != "remove" else "", ))  # Database entry is empty if no prefix.
+        await func.db_set(self.bot.db_con, "UPDATE settings SET value = ? WHERE flag = 'prefix'", (new_prefix if new_prefix.lower() != "remove" else "",))  # Database entry is empty if no prefix.
         await self.bot.change_presence(activity=Activity(type=ActivityType.listening, name=f"prefix: {new_prefix}" if new_prefix.lower() != "remove" else "pings only"))  # Set status.
         if new_prefix.lower() != "remove":  # Give feedback to user.
             await ctx.send(f"The bot prefix has successfully been changed to `{new_prefix}`.")
@@ -184,7 +185,7 @@ class CoreFunctionalityCog(commands.Cog):
         For that, see the `module load` command. For a list of existing default modules, see the `default list` command. For more
         info on modules see the help text for the `module` command."""
         if f"{mod}.py" in listdir("modules"):  # Check if such a module even exists.
-            response = await func.db_set(self.bot.db_con, "INSERT INTO default_modules VALUES (?)", (mod, ))  # Add the default module to the database.
+            response = await func.db_set(self.bot.db_con, "INSERT INTO default_modules VALUES (?)", (mod,))  # Add the default module to the database.
             if not response:  # If no error occurred while adding the module to the database report back.
                 await ctx.send(f"The `{clean(ctx, mod)}` module is now a default module.")
             else:  # If an error occurred while adding the module to the database, then it already existed. Report error.
@@ -199,9 +200,9 @@ class CoreFunctionalityCog(commands.Cog):
         longer automatically be loaded when the bot starts. This command will not unload commands that are already loaded.
         For that, see the `module unload` command. For a list of existing default modules, see the `default list` command.
         For more info on modules see the help text for the `module` command."""
-        result = await func.db_get_one(self.bot.db_con, "SELECT module FROM default_modules WHERE module = ?", (mod, ))  # See if the module is a default module to begin with.
+        result = await func.db_get_one(self.bot.db_con, "SELECT module FROM default_modules WHERE module = ?", (mod,))  # See if the module is a default module to begin with.
         if result:
-            await func.db_set(self.bot.db_con, "DELETE FROM default_modules WHERE module = ?", (mod, ))  # Remove it from the default module database.
+            await func.db_set(self.bot.db_con, "DELETE FROM default_modules WHERE module = ?", (mod,))  # Remove it from the default module database.
             await ctx.send(f"Removed `{clean(ctx, mod)}` module from default modules.")
         else:
             await ctx.send(f"No `{clean(ctx, mod)}` module in default modules.")  # Report back if it isn't in the database to begin with.
@@ -236,10 +237,10 @@ class CoreFunctionalityCog(commands.Cog):
 
     async def _command_get_state(self, command_name: str) -> int:
         """Helper function for command command that gets the state of the command."""
-        response = await func.db_get_one(self.bot.db_con, "SELECT state FROM command_states WHERE command = ?", (self.bot.all_commands[command_name].name, ))  # Get command state frm database.
+        response = await func.db_get_one(self.bot.db_con, "SELECT state FROM command_states WHERE command = ?", (self.bot.all_commands[command_name].name,))  # Get command state frm database.
         if response is None:
             await func.db_set(self.bot.db_con, "INSERT INTO command_states VALUES (?, ?)", (command_name, 0))  # Set to visible and enabled if no state is set for command.
-            response = (0, )
+            response = (0,)
         return response[0]
 
     @commands.has_permissions(administrator=True)
@@ -268,19 +269,16 @@ class CoreFunctionalityCog(commands.Cog):
         commands cannot be disabled. Disabled commands can be re-enabled with the `command enable` command."""
         if command_name in self.bot.all_commands.keys():  # Check if command exists and get it's state.
             state = await self._command_get_state(command_name)
-            if hasattr(self.bot, "help"):  # Check if the bot has help attribute.
-                if command_name in self.bot.help.keys() and self.bot.help[command_name].category.lower() == "core":  # Check if command is in core category.
-                    await ctx.send("Core commands cannot be disabled.")
-                else:
-                    if not self.bot.all_commands[command_name].enabled:  # Check if the command is already disabled.
-                        await ctx.send(f"The `{clean(ctx, command_name)}` command is already disabled.")
-                    else:
-                        state = 2 if state == 0 else 3  # Set new state, update database and enable command.
-                        self.bot.all_commands[command_name].enabled = False
-                        await func.db_set(self.bot.db_con, "UPDATE command_states SET state = ? WHERE command = ?", (state, self.bot.all_commands[command_name].name))
-                        await ctx.send(f"The `{clean(ctx, command_name)}` command is now disabled.")
+            if command_name in self.bot.help.keys() and self.bot.help[command_name].category.lower() == "core":  # Check if command is in core category.
+                await ctx.send("Core commands cannot be disabled.")
             else:
-                raise RuntimeError("Bot object has no help attribute.")
+                if not self.bot.all_commands[command_name].enabled:  # Check if the command is already disabled.
+                    await ctx.send(f"The `{clean(ctx, command_name)}` command is already disabled.")
+                else:
+                    state = 2 if state == 0 else 3  # Set new state, update database and enable command.
+                    self.bot.all_commands[command_name].enabled = False
+                    await func.db_set(self.bot.db_con, "UPDATE command_states SET state = ? WHERE command = ?", (state, self.bot.all_commands[command_name].name))
+                    await ctx.send(f"The `{clean(ctx, command_name)}` command is now disabled.")
         else:
             await ctx.send(f"No `{clean(ctx, command_name)}` command found.")
 
@@ -322,28 +320,66 @@ class CoreFunctionalityCog(commands.Cog):
         else:
             await ctx.send(f"No `{clean(ctx, command_name)}` command found.")
 
-    @commands.command(name="about", alias=["info"], uage="(MODULE NAME)")
+    @commands.command(name="about", alias=["info"], usage="(MODULE NAME)")
     async def about(self, ctx: commands.Context, *, module_name: str = None):
         """This command gives information about modules, such as a description, authors, and other credits. Module
         authors can even add a small image to be displayed alongside this info. If no module name is given or the
         bot's name is used then information about the bot itself is shown."""
-        if hasattr(self.bot, "modules"):  # Check if the bot has modules attribute.
-            if module_name is None:  # If no value is passed along we display the about page for the bot itself.
-                if self.bot.user.name.lower() in self.bot.modules.keys():  # Check if the bot has an entry.
-                    embed = self.bot.modules[self.bot.user.name.lower()].make_embed(ctx)  # Make and send response.
-                    await ctx.send(embed=embed)
-                else:
-                    raise RuntimeError(f"Bot info module not found.")
-            elif module_name.lower() in [mod.lower() for mod in self.bot.modules.keys()]:  # Check if the passed along value has an entry.
-                embed = self.bot.modules[module_name.lower()].make_embed(ctx)  # Make and send response.
+        if module_name is None:  # If no value is passed along we display the about page for the bot itself.
+            if self.bot.user.name.lower() in self.bot.modules.keys():  # Check if the bot has an entry.
+                embed = self.bot.modules[self.bot.user.name.lower()].make_embed(ctx)  # Make and send response.
                 await ctx.send(embed=embed)
             else:
-                response = f"No information for `{clean(ctx, module_name)}` module was found."  # Prepare error message for missing entry.
-                if module_name not in [mod.replace('modules.', '') for mod in self.bot.extensions.keys()]:
-                    response += "\nAdditionally no module with this name is loaded."  # Add additional info to the error if no such module is loaded.
-                await ctx.send(response)
+                raise RuntimeError(f"Bot info module not found.")
+        elif module_name.lower() in self.bot.modules.keys():  # Check if the passed along value has an entry.
+            embed = self.bot.modules[module_name.lower()].make_embed(ctx)  # Make and send response.
+            await ctx.send(embed=embed)
         else:
-            raise RuntimeError("Bot does not have modules attribute.")
+            response = f"No information for `{clean(ctx, module_name)}` module was found."  # Prepare error message for missing entry.
+            if module_name not in [mod.replace('modules.', '') for mod in self.bot.extensions.keys()]:
+                response += "\nAdditionally no module with this name is loaded."  # Add additional info to the error if no such module is loaded.
+            await ctx.send(response)
+
+    @commands.command(name="usage", usage="(MODULE NAME)")
+    async def usage(self, ctx: commands.Context, *, module_name: str = None):
+        """This command explains how a module is intended to be used. If no module name is given it will
+        show some basic information about usage of the bot itself."""
+        if module_name is None:
+            pref = self.bot.get_bot_prefix()
+            response = f"**How To Use:**\nThis bot features a variety of commands. You can get a list of all commands " \
+                       f"you have access to with the `{pref}help` command. In order to use a command your message has " \
+                       f"to start with the *bot prefix*, the bot prefix is currently set to `{pref}`. Simply type this " \
+                       f"prefix, followed by a command name, and you will run the command. For more information on " \
+                       f"individual commands, run `{pref}help` followed by the command name. This will give you info on " \
+                       f"the command, along with some examples of it and any aliases the command might have. You might " \
+                       f"not have access to all commands everywhere, the help command will only tell you about commands " \
+                       f"you have access to in that channel, and commands you can run only in the DMs with the bot. " \
+                       f"DM only commands will be labeled as such by the help command.\n\nSome commands accept extra " \
+                       f"input, an example would be how the help command accepts a command name. You can usually see an " \
+                       f"example of how the command is used on the command's help page. If you use a command incorrectly " \
+                       f"by missing some input or sending invalid input, it will send you the expected input. This is " \
+                       f"how to read the expected input:\n\nArguments encased in `<>` are obligatory.\nArguments encased " \
+                       f"in `()` are optional and can be skipped.\nArguments written in all uppercase are placeholders " \
+                       f"like names.\nArguments not written in uppercase are exact values.\nIf an argument lists multiple " \
+                       f"things separated by `/` then any one of them is valid.\nThe `<>` and `()` symbols are not part " \
+                       f"of the command.\n\nSample expected input: `{pref}about (MODULE NAME)`\nHere `{pref}about` is the " \
+                       f"command, and it takes an optional argument. The argument is written in all uppercase, so it is a " \
+                       f"placeholder. In other words you are expected to replace 'MODULE NAME' with the actual name of a " \
+                       f"module. Since the module name is optional, sending just `{pref}about` is also a valid command."
+            await ctx.send(response)
+        elif module_name.lower() in self.bot.modules.keys():
+            usage = self.bot.modules[module_name.lower()].usage
+            if isinstance(usage, str):
+                await ctx.send(usage)
+            elif isinstance(usage, Embed):
+                await ctx.send(embed=usage)
+            else:
+                await ctx.send(f"The `{clean(ctx, module_name)}` module does not have its usage defined.")
+        else:
+            response = f"No information for `{clean(ctx, module_name)}` module was found."  # Prepare error message for missing entry.
+            if module_name not in [mod.replace('modules.', '') for mod in self.bot.extensions.keys()]:
+                response += "\nAdditionally no module with this name is loaded."  # Add additional info to the error if no such module is loaded.
+            await ctx.send(response)
 
     @commands.is_owner()
     @commands.command(name="shutdown", aliases=["goodbye", "goodnight"], usage="(TIME BEFORE SHUTDOWN)")
@@ -372,6 +408,4 @@ class CoreFunctionalityCog(commands.Cog):
                     await ctx.send("The time could not be parsed correctly. Check the help command for shutdown for examples of times.")
                     print(f'[{func.cur_time()}] {ctx.message.author.id}: {str(e)}')
 
-
-# ToDo: Add bot usage command, explaining syntax and such.
 # ToDo: Add usage command to README

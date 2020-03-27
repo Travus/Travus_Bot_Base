@@ -15,7 +15,7 @@ from aiohttp import ClientSession
 def setup(bot: func.TravusBotBase):
     """Setup function ran when module is loaded."""
     bot.add_cog(DevCog(bot))  # Add cog and command help info.
-    bot.add_module("Dev", "[Travus](https://github.com/Travus):\n\tEval command\n\tRoleID command\n\tChannelID command\n\n[Rapptz](https://github.com/Rapptz):\n\tSudo command",
+    bot.add_module("Dev", "[Travus](https://github.com/Travus):\n\tEval command\n\tRoleID command\n\tChannelID command\n\n[Rapptz](https://github.com/Rapptz):\n\tSudo command", DevCog,
                    """This module includes developer functionality that supply information useful for programming, such as IDs, as well as
                    some debug and testing options such as code execution and remote command execution. Also allows checking the most recent error.""",
                    "[Rapptz](https://github.com/Rapptz):\n\tEval example\n\n[nerdstep710](https://github.com/nerdstep710):\n\tMystbin example")
@@ -80,6 +80,29 @@ class DevCog(commands.Cog):
                     await ctx.send(f'https://mystb.in/{key}')
             else:
                 await ctx.send(f"```py\n{text}\n```")
+
+    @staticmethod
+    def usage():
+        return f"**How To Use The Dev Module:**\nThe dev module is used for development purposes, such as retrieving " \
+               f"channel and role IDs, running commands on behalf of other users, and code execution. The commands " \
+               f"in this module are a bit more advanced than most others, this command will elaborate more on how to " \
+               f"run them. For more info on what the commands do, check their help entry.\n\n*Sudo Command*\nThis " \
+               f"command takes up to 3 arguments. The first one is a user. The second argument is a channel, but " \
+               f"this can be omitted. The bot will try to resolve the channel, if this fails it will fall back to the " \
+               f"channel the command was used in, then it will consider the second argument to be the third, namely " \
+               f"the command to be executed. This means in practice that unless the command starts with something that " \
+               f"would resolve as a channel the second argument can be omitted if the current channel is the target " \
+               f"channel.\n\n*Eval Command*\nThis command runs code. Code can be either be passed directly following " \
+               f"the command, or in a code block. In-line code blocks are supported. Multi-line code blocks are " \
+               f"supported both with and without syntax highlighting, however the start and end of the code block " \
+               f"(i.e. \\`\\`\\`) has to be on separate lines from the code. The bot will respond with all regular " \
+               f"output streams and the return value if there is one. If there is no output, the bot will not respond." \
+               f"\n\n*Roleids/Channelids Commands*\nThese commands both work similarly. The first argument should either " \
+               f"be the keyword `all` or alternatively the reference to either a channel or role based on which command " \
+               f"is used. Then optionally a channel can be given as a second argument, and the response will be sent in " \
+               f"this channel. The channel can be in another server entirely as long as both the user and the bot have " \
+               f"access there. If the keyword `dm` is used then the response will be sent in the user's DMs with the bot. " \
+               f"Lastly, if the argument is omitted then the response is sent in the current channel."
 
     @staticmethod
     def cleanup_code(content: str) -> str:
