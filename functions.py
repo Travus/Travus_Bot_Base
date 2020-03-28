@@ -62,7 +62,7 @@ class TravusBotBase(Bot):
     class _HelpInfo:
         """Class that holds help info for commands."""
 
-        def __init__(self, command: Command, category: str = "no category", restrictions: Dict[str, Union[bool, List[str]]] = None, examples: List[str] = None):
+        def __init__(self, command: Command, category: str = "no category", restrictions: Dict[str, Union[bool, List[str], str]] = None, examples: List[str] = None):
             """Initialization function loading all necessary information for HelpInfo class."""
             res = restrictions  # Shortening often used variable name.
             self.name = command.qualified_name
@@ -70,11 +70,18 @@ class TravusBotBase(Bot):
             self.aliases = list(command.aliases) or []
             self.aliases.append(command.name)
             self.category = category
-            self.guild_only = res["guild_only"] if isinstance(res, dict) and "guild_only" in res.keys() else False  # Set various restrictions.
-            self.owner = res["owner"] if isinstance(res, dict) and "owner" in res.keys() else False
+            self.examples = examples or []
             self.permissions = res["perms"] if isinstance(res, dict) and "perms" in res.keys() else []
             self.roles = res["roles"] if isinstance(res, dict) and "roles" in res.keys() else []
-            self.examples = examples or []
+            self.other_restrictions = res["other"] if isinstance(res, dict) and "other" in res.keys() else False
+            self.owner_only, self.guild_only, self.dm_only = False, False, False
+            for check in command.checks:
+                if "is_owner" in str(check):
+                    self.owner_only = True
+                if "guild_only" in str(check):
+                    self.guild_only = True
+                if "dm_only" in str(check):
+                    self.dm_only = True
 
         def make_embed(self, prefix: str, ctx: Context) -> Embed:
             """Creates embeds for command based on info stored in class."""
@@ -82,10 +89,12 @@ class TravusBotBase(Bot):
             embed.set_author(name=f"{self.name.title()} Command")
             aliases = "\n".join(sorted(self.aliases))  # Make and add aliases blurb.
             embed.add_field(name="Aliases", value=f"```\n{aliases}```", inline=True)
-            restrictions = "Bot Owner Only: Yes\n" if self.owner else ""  # Make and add restrictions blurb.
-            restrictions += f"Server Only: {'Yes' if self.guild_only else 'No'}"
+            restrictions = "Bot Owner Only: Yes\n" if self.owner_only else ""  # Make and add restrictions blurb.
+            restrictions += "DM Only: Yes\n" if self.dm_only else ""
+            restrictions += "" if self.dm_only else "Server Only: Yes" if self.guild_only else "Server Only: No"
             restrictions += ("\nPermissions:\n" + "\n".join(f"   {perm}" for perm in self.permissions)) if self.permissions else ""
             restrictions += ("\nAny role of:\n" + "\n".join([f"   {role}" for role in self.roles])) if self.roles else ""
+            restrictions += f"\n{self.other_restrictions}" if self.other_restrictions else ""
             embed.add_field(name="Restrictions", value=f"```{restrictions}```", inline=True)
             examples = "\n".join([f"`{prefix}{self.name} {example}`" for example in self.examples])  # Make and add examples.
             embed.add_field(name="Examples", value=examples or "No examples found.", inline=False)
@@ -190,7 +199,7 @@ class TravusBotBase(Bot):
                 command.enabled = False
                 command.hidden = True
 
-    def add_command_help(self, command: Command, category: str = "no category", restrictions: Dict[str, Union[bool, List[str]]] = None, examples: List[str] = None):
+    def add_command_help(self, command: Command, category: str = "no category", restrictions: Dict[str, Union[bool, List[str], str]] = None, examples: List[str] = None):
         """Function that is used to add help info to the bot correctly. Used to minimize developmental errors."""
         self.help[command.qualified_name] = self._HelpInfo(command, category, restrictions, examples)
 

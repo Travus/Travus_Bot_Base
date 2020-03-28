@@ -19,10 +19,11 @@ def setup(bot: func.TravusBotBase):
                    """This module includes developer functionality that supply information useful for programming, such as IDs, as well as
                    some debug and testing options such as code execution and remote command execution. Also allows checking the most recent error.""",
                    "[Rapptz](https://github.com/Rapptz):\n\tEval example\n\n[nerdstep710](https://github.com/nerdstep710):\n\tMystbin example")
-    bot.add_command_help(DevCog.eval, "Dev", {"owner_only": True}, ["return 4 + 7", "return channel.id"])
-    bot.add_command_help(DevCog.sudo, "Dev", {"owner_only": True}, ["travus bot_room help", "118954681241174016 about dev"])
-    bot.add_command_help(DevCog.roleids, "Dev", {"guild_only": True, "perms": ["Manage Roles: Yes"]}, ["all bot_room", "all dm", "muted"])
-    bot.add_command_help(DevCog.channelids, "Dev", {"guild_only": True, "perms": ["Manage Channels: Yes"]}, ["all bot_room", "all dm", "general"])
+    bot.add_command_help(DevCog.eval, "Dev", None, ["return 4 + 7", "return channel.id"])
+    bot.add_command_help(DevCog.sudo, "Dev", None, ["travus bot_room help", "118954681241174016 about dev"])
+    bot.add_command_help(DevCog.roleids, "Dev", {"perms": ["Manage Roles"]}, ["all bot_room", "all dm", "muted"])
+    bot.add_command_help(DevCog.channelids, "Dev", {"perms": ["Manage Channels"]}, ["all bot_room", "all dm", "general"])
+    print(DevCog.sudo)
 
 
 def teardown(bot: func.TravusBotBase):
@@ -145,6 +146,7 @@ class DevCog(commands.Cog):
         await self._mystbin_send(ctx, response)
 
     @commands.is_owner()
+    @commands.guild_only()
     @commands.command(name="sudo", usage="<USER> (CHANNEL) <COMMAND>")
     async def sudo(self, ctx: commands.Context, user: User, channel: Optional[func.GlobalTextChannel], *, command: str):
         """This command lets you run commands as another user, optionally in other channels. If the channel argument is
