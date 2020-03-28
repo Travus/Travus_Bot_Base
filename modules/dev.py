@@ -23,7 +23,6 @@ def setup(bot: func.TravusBotBase):
     bot.add_command_help(DevCog.sudo, "Dev", None, ["travus bot_room help", "118954681241174016 about dev"])
     bot.add_command_help(DevCog.roleids, "Dev", {"perms": ["Manage Roles"]}, ["all bot_room", "all dm", "muted"])
     bot.add_command_help(DevCog.channelids, "Dev", {"perms": ["Manage Channels"]}, ["all bot_room", "all dm", "general"])
-    print(DevCog.sudo)
 
 
 def teardown(bot: func.TravusBotBase):
