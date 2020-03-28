@@ -96,7 +96,7 @@ class TravusBotBase(Bot):
             restrictions += ("\nAny role of:\n" + "\n".join([f"   {role}" for role in self.roles])) if self.roles else ""
             restrictions += f"\n{self.other_restrictions}" if self.other_restrictions else ""
             embed.add_field(name="Restrictions", value=f"```{restrictions}```", inline=True)
-            examples = "\n".join([f"`{prefix}{self.name} {example}`" for example in self.examples])  # Make and add examples.
+            examples = "\n".join([f"`{prefix}{self.name} {example}`" if example else f"`{prefix}{self.name}`" for example in self.examples])  # Make and add examples.
             embed.add_field(name="Examples", value=examples or "No examples found.", inline=False)
             embed.set_footer(text=ctx.message.author.display_name, icon_url=ctx.message.author.avatar_url)
             return embed
