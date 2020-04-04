@@ -370,7 +370,7 @@ class CoreFunctionalityCog(commands.Cog):
         elif module_name.lower() in self.bot.modules.keys():
             usage = self.bot.modules[module_name.lower()].usage
             if isinstance(usage, str):
-                await ctx.send(usage)
+                await ctx.send(usage if len(usage) < 1950 else f"{usage[:1949]}...")
             elif isinstance(usage, Embed):
                 await ctx.send(embed=usage)
             else:

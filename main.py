@@ -84,7 +84,7 @@ if __name__ == "__main__":
                         categories[category] = []
                     categories[category].append(com_text)  # Add command to category.
             for category in sorted(categories.keys()):
-                if len(msg) > 1500:  # Send message if it's over 1500 characters long to avoid 2k character message limit.
+                if len(msg) + len(f"**{category.title()}**\n{', '.join(sorted(categories[category]))}\n\n") > 1900:  # Send message if it's over 1900 characters long.
                     msg += '1 = In DMs only.\n' if len(non_passing) else ""
                     msg += f"Use `{bot.get_bot_prefix()}help <COMMAND>` for more info on individual commands."
                     await self.get_destination().send(f"__**Help Info {self.context.message.author.mention}:**__\n\n{self.remove_mentions(msg)}")

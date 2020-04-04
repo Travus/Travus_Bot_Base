@@ -85,7 +85,8 @@ class TravusBotBase(Bot):
 
         def make_embed(self, prefix: str, ctx: Context) -> Embed:
             """Creates embeds for command based on info stored in class."""
-            embed = Embed(colour=Colour(0x4a4a4a), description=f"Category: {self.category.title()}\n\n{self.description}", timestamp=datetime.datetime.utcnow())
+            desc = f"Category: {self.category.title()}\n\n{self.description}"
+            embed = Embed(colour=Colour(0x4a4a4a), description=desc if len(desc) < 1950 else f"{desc[:1949]}...", timestamp=datetime.datetime.utcnow())
             embed.set_author(name=f"{self.name.title()} Command")
             aliases = "\n".join(sorted(self.aliases))  # Make and add aliases blurb.
             embed.add_field(name="Aliases", value=f"```\n{aliases}```", inline=True)
@@ -116,7 +117,8 @@ class TravusBotBase(Bot):
 
         def make_embed(self, ctx: Context) -> Embed:
             """Creates embeds for module based on info stored in class."""
-            embed = Embed(colour=Colour(0x4a4a4a), description=self.description.replace("_prefix_", self.get_prefix()), timestamp=datetime.datetime.utcnow())
+            desc = self.description.replace("_prefix_", self.get_prefix())
+            embed = Embed(colour=Colour(0x4a4a4a), description=desc if len(desc) < 1950 else f"{desc[:1949]}...", timestamp=datetime.datetime.utcnow())
             embed.set_author(name=self.name)
             embed.set_footer(text=ctx.message.author.display_name, icon_url=ctx.message.author.avatar_url)
             if self.image:
