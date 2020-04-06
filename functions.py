@@ -188,10 +188,11 @@ class TravusBotBase(Bot):
     async def update_command_states(self):
         """Function that get command state (hidden, disabled) for every command currently loaded."""
         for command in self.commands:
-            command_state = await db_get_one(self.db_con, "SELECT state FROM command_states WHERE command = ?", (command.name,))
+            cog_com_name = f"{command.cog.__class__.__name__ + '.' if command.cog else ''}{command.name}"
+            command_state = await db_get_one(self.db_con, "SELECT state FROM command_states WHERE command = ?", (cog_com_name,))
             if command_state is None:  # If a command has no stat registered, set it to visible and enables.
                 command_state = (0,)
-                await db_set(self.db_con, "INSERT INTO command_states VALUES (?, ?)", (command.name, 0))
+                await db_set(self.db_con, "INSERT INTO command_states VALUES (?, ?)", (cog_com_name, 0))
             command_state = int(command_state[0])
             if command_state == 1:  # Set command to be hidden.
                 command.enabled = True

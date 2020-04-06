@@ -237,13 +237,18 @@ class CoreFunctionalityCog(commands.Cog):
         disabled. These settings are saved across restarts."""
         raise commands.BadArgument(f"No sub-command given for {ctx.command.name}.")
 
-    async def _command_get_state(self, command_name: str) -> int:
+    async def _command_get_state(self, command: commands.Command) -> int:
         """Helper function for command command that gets the state of the command."""
-        response = await func.db_get_one(self.bot.db_con, "SELECT state FROM command_states WHERE command = ?", (self.bot.all_commands[command_name].name,))  # Get command state frm database.
+        cog_com_name = f"{command.cog.__class__.__name__ + '.' if command.cog else ''}{command.name}"
+        response = await func.db_get_one(self.bot.db_con, "SELECT state FROM command_states WHERE command = ?", (cog_com_name,))
         if response is None:
-            await func.db_set(self.bot.db_con, "INSERT INTO command_states VALUES (?, ?)", (command_name, 0))  # Set to visible and enabled if no state is set for command.
+            await func.db_set(self.bot.db_con, "INSERT INTO command_states VALUES (?, ?)", (cog_com_name, 0))  # Set enabled and not visible if not in database.
             response = (0,)
         return response[0]
+
+    async def _command_set_state(self, command: commands.Command, state: int):
+        """Helper function for command command that sets the state of the command."""
+        await func.db_set(self.bot.db_con, "UPDATE command_states SET state = ? WHERE command = ?", (state, f"{command.cog.__class__.__name__ + '.' if command.cog else ''}{command.name}"))
 
     @commands.has_permissions(administrator=True)
     @command.command(name="enable", usage="<COMMAND NAME>")
@@ -252,13 +257,12 @@ class CoreFunctionalityCog(commands.Cog):
         It will also add the command back into the list of commands shown by the help command and re-enable the
         viewing of it's help text given the command has help text and it has not otherwise been hidden."""
         if command_name in self.bot.all_commands.keys():  # Check if command exists and get it's state.
-            state = await self._command_get_state(command_name)
+            state = await self._command_get_state(self.bot.all_commands[command_name])
             if self.bot.all_commands[command_name].enabled:  # If command is already enabled, report back.
                 await ctx.send(f"The `{clean(ctx, command_name)}` command is already enabled.")
             else:
-                state = 0 if state == 2 else 1  # Set new state, update database and enable command.
                 self.bot.all_commands[command_name].enabled = True
-                await func.db_set(self.bot.db_con, "UPDATE command_states SET state = ? WHERE command = ?", (state, self.bot.all_commands[command_name].name))
+                await self._command_set_state(self.bot.all_commands[command_name], 0 if state == 2 else 1)
                 await ctx.send(f"The `{clean(ctx, command_name)}` command is now enabled.")
         else:
             await ctx.send(f"No `{clean(ctx, command_name)}` command found.")
@@ -270,16 +274,15 @@ class CoreFunctionalityCog(commands.Cog):
         list of commands shown by the help command. The command's help text will also not be viewable. Core
         commands cannot be disabled. Disabled commands can be re-enabled with the `command enable` command."""
         if command_name in self.bot.all_commands.keys():  # Check if command exists and get it's state.
-            state = await self._command_get_state(command_name)
+            state = await self._command_get_state(self.bot.all_commands[command_name])
             if command_name in self.bot.help.keys() and self.bot.help[command_name].category.lower() == "core":  # Check if command is in core category.
                 await ctx.send("Core commands cannot be disabled.")
             else:
                 if not self.bot.all_commands[command_name].enabled:  # Check if the command is already disabled.
                     await ctx.send(f"The `{clean(ctx, command_name)}` command is already disabled.")
                 else:
-                    state = 2 if state == 0 else 3  # Set new state, update database and enable command.
                     self.bot.all_commands[command_name].enabled = False
-                    await func.db_set(self.bot.db_con, "UPDATE command_states SET state = ? WHERE command = ?", (state, self.bot.all_commands[command_name].name))
+                    await self._command_set_state(self.bot.all_commands[command_name], 2 if state == 0 else 3)
                     await ctx.send(f"The `{clean(ctx, command_name)}` command is now disabled.")
         else:
             await ctx.send(f"No `{clean(ctx, command_name)}` command found.")
@@ -293,13 +296,12 @@ class CoreFunctionalityCog(commands.Cog):
         be enough to re-add them to the help list since disabling them also hides them from the help list.
         See the `command enable` command to re-enable disabled commands."""
         if command_name in self.bot.all_commands.keys():  # Check if command exists and get it's state.
-            state = await self._command_get_state(command_name)
+            state = await self._command_get_state(self.bot.all_commands[command_name])
             if not self.bot.all_commands[command_name].hidden:  # Check if command i already visible.
                 await ctx.send(f"The `{clean(ctx, command_name)}` command is already shown.")
             else:
-                state = 0 if state == 1 else 2  # Set new state, update database and enable command.
                 self.bot.all_commands[command_name].hidden = False
-                await func.db_set(self.bot.db_con, "UPDATE command_states SET state = ? WHERE command = ?", (state, self.bot.all_commands[command_name].name))
+                await self._command_set_state(self.bot.all_commands[command_name], 0 if state == 1 else 2)
                 await ctx.send(f"The `{clean(ctx, command_name)}` command is now shown.")
         else:
             await ctx.send(f"No `{clean(ctx, command_name)}` command found.")
@@ -311,13 +313,12 @@ class CoreFunctionalityCog(commands.Cog):
         not disable the viewing of the help text for the command if someone already knows it's name.
         Commands who have been hidden can be un-hidden with the `command show` command."""
         if command_name in self.bot.all_commands.keys():  # Check if command exists and get it's state.
-            state = await self._command_get_state(command_name)
+            state = await self._command_get_state(self.bot.all_commands[command_name])
             if self.bot.all_commands[command_name].hidden:  # Check if command is already hidden.
                 await ctx.send(f"The `{clean(ctx, command_name)}` command is already hidden.")
             else:
-                state = 1 if state == 0 else 3  # Set new state, update database and enable command.
                 self.bot.all_commands[command_name].hidden = True
-                await func.db_set(self.bot.db_con, "UPDATE command_states SET state = ? WHERE command = ?", (state, self.bot.all_commands[command_name].name))
+                await self._command_set_state(self.bot.all_commands[command_name], 1 if state == 0 else 3)
                 await ctx.send(f"The `{clean(ctx, command_name)}` command is now hidden.")
         else:
             await ctx.send(f"No `{clean(ctx, command_name)}` command found.")
