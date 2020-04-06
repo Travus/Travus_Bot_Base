@@ -24,12 +24,12 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
-# This code has been altered by Travus (Travus#8888).
+# This code was written by Rapptz and has been slightly altered by Travus.
 
+import asyncio
+import queue
 import sqlite3
 import threading
-import queue
-import asyncio
 
 
 class _WorkerEntry:

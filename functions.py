@@ -1,11 +1,13 @@
-import asqlite  # For asynchronous database transactions.
-import datetime  # To get current time.
 import asyncio  # To make async db connection in custom bot __init__.
-from asqlite import Connection as A_Connection, connect as a_connect  # For type-hinting
+import datetime  # To get current time.
+from re import compile, findall  # Regex functions used in clean function for detecting mentions.
 from typing import Tuple, Dict, List, Union, Callable, Type  # For type-hinting.
+
 from discord import utils, Forbidden, Embed, Colour, Message, User, Member, TextChannel, VoiceChannel, CategoryChannel  # For embeds and deleting messages.
 from discord.ext.commands import Command, Cog, Bot, Context, Converter, UserConverter, BadArgument, TextChannelConverter, CommandError, UserInputError  # For type-hinting.
-from re import compile, findall  # Regex functions used in clean function for detecting mentions.
+
+import asqlite  # For asynchronous database transactions.
+from asqlite import Connection as A_Connection, connect as a_connect  # For type-hinting
 
 
 class GlobalChannel(Converter):

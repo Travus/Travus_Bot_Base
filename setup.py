@@ -1,5 +1,5 @@
-import sqlite3  # To access database.
 import os  # To clear terminal.
+import sqlite3  # To access database.
 from time import sleep  # To not quit immediately.
 
 if __name__ == "__main__":

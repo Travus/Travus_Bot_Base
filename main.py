@@ -1,10 +1,12 @@
-import discord  # To various Discord classes.
-from discord.ext import commands  # For command functionality.
-import sqlite3  # To access database.
 import os  # To check directory contents and make directories.
-import functions as func  # Common functions library.
-from aiohttp import ClientConnectorError as CCError  # To detect connection errors.
+import sqlite3  # To access database.
 from copy import copy  # To copy context in help command.
+
+import discord  # To various Discord classes.
+from aiohttp import ClientConnectorError as CCError  # To detect connection errors.
+from discord.ext import commands  # For command functionality.
+
+import functions as func  # Common functions library.
 
 
 def setup_bot(bot_object: func.TravusBotBase):

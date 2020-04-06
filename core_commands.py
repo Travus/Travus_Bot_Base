@@ -1,9 +1,11 @@
+from asyncio import sleep as asleep  # For waiting asynchronously.
+from os import listdir  # To check files on disk.
+
+from discord import Embed, Activity, ActivityType  # For bot status
 from discord.ext import commands  # For implementation of bot commands.
+
 import functions as func  # Shared function library.
 from functions import clean  # Shorthand for cleaning output.
-from discord import Embed, Activity, ActivityType  # For bot status
-from os import listdir  # To check files on disk.
-from asyncio import sleep as asleep  # For waiting asynchronously.
 
 
 def setup(bot: func.TravusBotBase):
