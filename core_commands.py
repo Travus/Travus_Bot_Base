@@ -347,7 +347,7 @@ class CoreFunctionalityCog(commands.Cog):
     async def usage(self, ctx: commands.Context, *, module_name: str = None):
         """This command explains how a module is intended to be used. If no module name is given it will
         show some basic information about usage of the bot itself."""
-        if module_name is None:
+        if module_name is None or module_name.lower() in [self.bot.user.name.lower(), "core_commands", "core commands"]:
             pref = self.bot.get_bot_prefix()
             response = f"**How To Use:**\nThis bot features a variety of commands. You can get a list of all commands " \
                        f"you have access to with the `{pref}help` command. In order to use a command your message has " \
