@@ -186,8 +186,8 @@ class DevCog(commands.Cog):
         messages."""
         response = ""
         if isinstance(channel, str) and channel.lower() == "all":
-            response = "\n".join([f"{clean(ctx, channel.name)}: {channel.id}" for channel in ctx.guild.text_channels])
-            response += "\n" + "\n".join([f"{clean(ctx, channel.name)}: {channel.id}" for channel in ctx.guild.voice_channels])
+            response = "\n".join([f"{channel.name}: {channel.id}" for channel in ctx.guild.text_channels])
+            response += "\n" + "\n".join([f"{channel.name}: {channel.id}" for channel in ctx.guild.voice_channels])
         elif isinstance(channel, str):
             raise commands.BadArgument("Channel could not be parsed and string is not 'all'.")
         else:
