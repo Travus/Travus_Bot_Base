@@ -390,7 +390,7 @@ class CoreFunctionalityCog(commands.Cog):
         """This command turns the bot off. A delay can be set causing the bot to wait before shutting down. The time
         uses a format of numbers followed by units, see examples for details. Times supported are weeks (w), days (d),
         hours (h), minutes (m) and seconds (s), and even negative numbers. For this command the delay must be between
-        0 seconds and 2 hours. Supplying no time will cause the bot to shut down immediately. Once started, a shutdown
+        0 seconds and 24 hours. Supplying no time will cause the bot to shut down immediately. Once started, a shutdown
         cannot be stopped."""
         if countdown is None:  # If no time is passed along, shut down the bot immediately.
             await ctx.send("Goodbye!")
@@ -398,7 +398,7 @@ class CoreFunctionalityCog(commands.Cog):
             exit(0)
         else:
             try:
-                time = func.parse_time(countdown, 0, 7200, True)  # Parse time to get time in seconds, error if time exceeds limits.
+                time = func.parse_time(countdown, 0, 86400, True)  # Parse time to get time in seconds, error if time exceeds limits.
                 await ctx.send(f"Shutdown will commence in {time} seconds.")  # Report back, wait and shutdown.
                 await asleep(time)
                 await ctx.send("Shutting down!")
@@ -406,7 +406,7 @@ class CoreFunctionalityCog(commands.Cog):
                 exit(0)
             except ValueError as e:  # If time parser encounters error, and error is exceeding of limit, report back.
                 if str(e) in ["Time too short.", "Time too long."]:
-                    await ctx.send("The time for this command must be between 0 seconds to 2 hours.")
+                    await ctx.send("The time for this command must be between 0 seconds to 24 hours.")
                 else:  # If another error is encountered, log to console.
                     await ctx.send("The time could not be parsed correctly. Check the help command for shutdown for examples of times.")
                     print(f'[{func.cur_time()}] {ctx.message.author.id}: {str(e)}')
