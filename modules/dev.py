@@ -84,7 +84,8 @@ class DevCog(commands.Cog):
                 await ctx.send(f"```py\n{text}\n```")
 
     @staticmethod
-    def usage():
+    def usage() -> str:
+        """Returns the usage text."""
         return f"**How To Use The Dev Module:**\nThis module is used for development purposes, such as retrieving " \
                f"channel and role IDs, running commands on behalf of other users, and running code. The commands " \
                f"in this module are a bit more advanced than most others, this command will elaborate more on how to " \
