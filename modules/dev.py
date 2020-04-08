@@ -1,28 +1,30 @@
-from discord.ext import commands  # For implementation of bot commands.
-from discord import User, Member, Role  # For type-hinting and exceptions.
-import functions as func  # Shared function library.
-from functions import clean  # Shorthand for cleaning output.
+from contextlib import redirect_stdout  # To return eval output.
 from copy import copy  # For copying context.
-from typing import Optional, Union  # For type-hinting.
-import aiohttp  # To send info to mystbin.
 from io import StringIO  # To return eval output.
 from textwrap import indent, wrap  # To format eval output.
-from contextlib import redirect_stdout  # To return eval output.
 from traceback import format_exc  # To return eval output.
+from typing import Optional, Union  # For type-hinting.
+
+import aiohttp  # To send info to mystbin.
 from aiohttp import ClientSession
+from discord import Member, Role  # For type-hinting and exceptions.
+from discord.ext import commands  # For implementation of bot commands.
+
+import functions as func  # Shared function library.
 
 
 def setup(bot: func.TravusBotBase):
     """Setup function ran when module is loaded."""
     bot.add_cog(DevCog(bot))  # Add cog and command help info.
-    bot.add_module("Dev", "[Travus](https://github.com/Travus):\n\tEval command\n\tRoleID command\n\tChannelID command\n\n[Rapptz](https://github.com/Rapptz):\n\tSudo command", DevCog,
-                   """This module includes developer functionality that supply information useful for programming, such as IDs, as well as
+    bot.add_module("Dev", "[Travus](https://github.com/Travus):\n\tEval command\n\tRoleID command\n\tChannelID command\n\tLast error command\n\n[Rapptz](https://github.com/Rapptz):\n\tSudo command",
+                   DevCog, """This module includes developer functionality that supply information useful for programming, such as IDs, as well as
                    some debug and testing options such as code execution and remote command execution. Also allows checking the most recent error.""",
                    "[Rapptz](https://github.com/Rapptz):\n\tEval example\n\n[nerdstep710](https://github.com/nerdstep710):\n\tMystbin example")
     bot.add_command_help(DevCog.eval, "Dev", None, ["return 4 + 7", "return channel.id"])
     bot.add_command_help(DevCog.sudo, "Dev", None, ["travus bot_room help", "118954681241174016 about dev"])
     bot.add_command_help(DevCog.roleids, "Dev", {"perms": ["Manage Roles"]}, ["all bot_room", "all dm", "muted"])
     bot.add_command_help(DevCog.channelids, "Dev", {"perms": ["Manage Channels"]}, ["all bot_room", "all dm", "general"])
+    bot.add_command_help(DevCog.lasterror, "Dev", {"perms": ["Manage Server"]}, [""])
 
 
 def teardown(bot: func.TravusBotBase):
