@@ -147,7 +147,7 @@ class DevCog(commands.Cog):
     @commands.is_owner()
     @commands.guild_only()
     @commands.command(name="sudo", usage="<USER> (CHANNEL) <COMMAND>")
-    async def sudo(self, ctx: commands.Context, user: User, channel: Optional[func.GlobalTextChannel], *, command: str):
+    async def sudo(self, ctx: commands.Context, user: Member, channel: Optional[func.GlobalTextChannel], *, command: str):
         """This command lets you run commands as another user, optionally in other channels. If the channel argument is
         skipped and the bot fails to parse the argument as a channel it will ignore the channel argument and move on to
         parsing the command instead. In this case the command will be sent from the channel you are currently in."""
@@ -156,7 +156,10 @@ class DevCog(commands.Cog):
             return
         new_ctx = copy(ctx.message)
         new_ctx.channel = channel or ctx.channel
-        new_ctx.author = new_ctx.channel.guild.get_member(user.id) or user
+        new_ctx.author = new_ctx.channel.guild.get_member(user.id)
+        if new_ctx.author is None:
+            await ctx.send("Target user is not in target server.")
+            return
         new_ctx.content = ctx.prefix + command
         new_ctx = await self.bot.get_context(new_ctx, cls=type(ctx))
         await self.bot.invoke(new_ctx)
