@@ -53,7 +53,6 @@ if __name__ == "__main__":
     bot.modules = {}  # Define empty modules bot-variable.
     bot.has_started = False  # Flags that the initial setup in on_ready has not run yet.
 
-    # noinspection DuplicatedCode
     class CustomHelp(commands.HelpCommand):
         """Class for custom help command."""
 
@@ -64,14 +63,19 @@ if __name__ == "__main__":
             information for that command, such as what the command does, aliases, what restrictions it has, and
             examples.""", "usage": "(COMMAND NAME)"})
 
-        async def send_bot_help(self, mapping):
-            """Function that triggers when help command is used without command."""
+        async def _send_help_entry(self, command_object):
+            if command_object.qualified_name in bot.help.keys():
+                if command_object.enabled:
+                    embed = bot.help[command_object.qualified_name].make_embed(bot.get_bot_prefix(), self.context)  # Send command help info if enabled.
+                    await self.get_destination().send(embed=embed)
+                else:
+                    await self.get_destination().send(f"The `{command_object.qualified_name}` command is currently disabled.")  # Give feedback if disabled.
+            else:
+                await self.get_destination().send("No help information is registered for this command.")  # Give feedback if no help info registered.
+
+        async def _send_command_list(self, full_mapping):
             categories = {}  # List of categorized commands.
             msg = ""  # Message to be sent.
-            full_mapping = []  # Command list.
-            for com_mapping in mapping.values():
-                full_mapping.extend(com_mapping)  # Add all cogs to list.
-            full_mapping = set([com for com in full_mapping if com.enabled and not com.hidden])
             filtered_mapping = {f"`{com.qualified_name}`": com for com in await self.filter_commands(full_mapping)}
             non_passing = list(set(full_mapping).difference(set(filtered_mapping.values())))
             new_ctx = copy(self.context)
@@ -99,64 +103,31 @@ if __name__ == "__main__":
                 msg += f"Use `{bot.get_bot_prefix()}help <COMMAND>` for more info on individual commands."  # Send message.
             await self.get_destination().send(f"__**Help Info {self.context.message.author.mention}:**__\n\n{self.remove_mentions(msg)}")
 
+        async def send_bot_help(self, mapping):
+            """Function that triggers when help command is used without command."""
+            full_mapping = []  # Command list.
+            for com_mapping in mapping.values():
+                full_mapping.extend(com_mapping)  # Add all cogs to list.
+            full_mapping = set([com for com in full_mapping if com.enabled and not com.hidden])
+            await self._send_command_list(full_mapping)
+
         async def send_command_help(self, command_object: commands.Command):
             """Function that triggers when help command is used with a command."""
             while command_object.qualified_name not in bot.help.keys() and hasattr(command_object, "parents") and len(command_object.parents):
                 command_object = command_object.parents[0]  # Get parent in case it has help text.
-            if command_object.qualified_name in bot.help.keys():
-                if command_object.enabled:
-                    embed = bot.help[command_object.qualified_name].make_embed(bot.get_bot_prefix(), self.context)  # Send command help info if enabled.
-                    await self.get_destination().send(embed=embed)
-                else:
-                    await self.get_destination().send(f"The `{command_object.qualified_name}` command is currently disabled.")  # Give feedback if disabled.
-            else:
-                await self.get_destination().send("No help information is registered for this command.")  # Give feedback if no help info registered.
+            await self._send_help_entry(command_object)
 
         async def send_cog_help(self, cog: commands.Cog):
             """Function that triggers when help command is used with a cog."""
-            categories = {}  # List of categorized commands.
-            msg = ""  # Message to be sent.
             full_mapping = set([com for com in cog.get_commands() if com.enabled and not com.hidden])
-            filtered_mapping = {f"`{com.qualified_name}`": com for com in await self.filter_commands(full_mapping)}
-            non_passing = list(set(full_mapping).difference(set(filtered_mapping.values())))
-            new_ctx = copy(self.context)
-            new_ctx.guild = None
-            non_passing = {f'`{com.qualified_name}`¹': com for com in non_passing if await func.can_run(com, new_ctx)}
-            filtered_mapping.update(non_passing)
-            for com_text, com in filtered_mapping.items():
-                if com.qualified_name in bot.help.keys():
-                    command_help = bot.help[com.qualified_name]  # Get command help info.
-                    category = command_help.category.lower() if command_help.category else "no category"  # Get command category.
-                    if category not in categories.keys():  # Add category if it wasn't encountered before.
-                        categories[category] = []
-                    categories[category].append(com_text)  # Add command to category.
-            for category in sorted(categories.keys()):
-                if len(msg) > 1500:  # Send message if it's over 1500 characters long to avoid 2k character message limit.
-                    msg += '1 = In DMs only.\n' if len(non_passing) else ""
-                    msg += f"Use `{bot.get_bot_prefix()}help <COMMAND>` for more info on individual commands."
-                    await self.get_destination().send(f"__**Help Info {self.context.message.author.mention}:**__\n\n{self.remove_mentions(msg)}")
-                    msg = "\n"  # Sets message to newline so that it doesn't trigger 'no info found' condition.
-                msg += f"**{category.title()}**\n{', '.join(sorted(categories[category]))}\n\n"
-            if msg == "":
-                msg = "No help information was found."
-            else:
-                msg += '1 = In DMs only.\n' if len(non_passing) else ""
-                msg += f"Use `{bot.get_bot_prefix()}help <COMMAND>` for more info on individual commands."  # Send message.
-            await self.get_destination().send(f"__**Help Info {self.context.message.author.mention}:**__\n\n{self.remove_mentions(msg)}")
+            await self._send_command_list(full_mapping)
 
         async def send_group_help(self, group):
             """Function that triggers when help command is used with a group."""
             while group.qualified_name not in bot.help.keys() and hasattr(group, "parents") and len(group.parents):
                 print(group.parents)
                 group = group.parents[0]  # Get parent in case it has help text.
-            if group.qualified_name in bot.help.keys():
-                if group.enabled:
-                    embed = bot.help[group.qualified_name].make_embed(bot.get_bot_prefix(), self.context)  # Send command help info if enabled.
-                    await self.get_destination().send(embed=embed)
-                else:
-                    await self.get_destination().send(f"The `{group.qualified_name}` command is currently disabled.")  # Give feedback if disabled.
-            else:
-                await self.get_destination().send("No help information is registered for this command.")  # Give feedback if no help info registered.
+            await self._send_help_entry(group)
 
         async def subcommand_not_found(self, command, string):
             """Function that returns content of error when subcommand invalid."""
