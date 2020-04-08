@@ -394,6 +394,7 @@ class CoreFunctionalityCog(commands.Cog):
         cannot be stopped."""
         if countdown is None:  # If no time is passed along, shut down the bot immediately.
             await ctx.send("Goodbye!")
+            await self.bot.db_con.close()
             await self.bot.close()
             exit(0)
         else:
