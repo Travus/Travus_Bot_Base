@@ -39,18 +39,18 @@ class GlobalTextChannel(Converter):
     id = None
     name = None
 
-    async def convert(self, ctx: Context, channel: str) -> Union[TextChannel, User]:
+    async def convert(self, ctx: Context, text_channel: str) -> Union[TextChannel, User]:
         """Converter method used by discord.py."""
-        if isinstance(channel, str) and channel.lower() in ["dm", "dms", "pm", "pms"]:
+        if isinstance(text_channel, str) and text_channel.lower() in ["dm", "dms", "pm", "pms"]:
             return ctx.message.author  # Get DM channel if asked for.
         try:
-            return await UserConverter().convert(ctx, channel)
+            return await UserConverter().convert(ctx, text_channel)
         except BadArgument:
             try:
-                return await TextChannelConverter().convert(ctx, channel)
+                return await TextChannelConverter().convert(ctx, text_channel)
             except BadArgument:  # Channel not in server.
                 try:
-                    converted = ctx.bot.get_channel(int(channel))
+                    converted = ctx.bot.get_channel(int(text_channel))
                     if converted is None or isinstance(converted, VoiceChannel) or isinstance(converted, CategoryChannel):
                         raise UserInputError(f'Could not identify text channel.')
                     return converted
