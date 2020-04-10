@@ -48,7 +48,6 @@ async def get_prefix(bot_object, message):
 
 if __name__ == "__main__":
     bot = tbb.TravusBotBase(command_prefix=get_prefix)  # Define bot object.
-    bot.prefix = "!"  # Set default prefix, this will be overwritten by setup function later.
 
     class CustomHelp(commands.HelpCommand):
         """Class for custom help command."""

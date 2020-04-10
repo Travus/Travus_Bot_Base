@@ -144,7 +144,7 @@ class TravusBotBase(Bot):
         self.extension_ctx: Optional[Context] = None
         self.help: Dict[str, TravusBotBase._HelpInfo] = {}
         self.modules: Dict[str, TravusBotBase._ModuleInfo] = {}
-        self.prefix: str = ""
+        self.prefix: Optional[str] = None
         self.delete_messages: int = 1
         self.is_connected: int = 0
         self.has_started: bool = False
