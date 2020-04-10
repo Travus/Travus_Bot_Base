@@ -175,14 +175,14 @@ class TravusBotBase(Bot):
         if name.lower() in self.modules.keys():
             del self.modules[name.lower()]
 
-    def add_commands(self, com_list: List[Command]):
+    def add_commands(self, command_list: List[Command]):
         """Adds multiple commands at once using bot.add_command."""
-        for com in com_list:
+        for com in command_list:
             self.add_command(com)
 
-    def remove_commands(self, com_list: List[Union[Command, str]]):
+    def remove_commands(self, command_list: List[Union[Command, str]]):
         """Removed multiple commands at once using bot.remove_command. Accepts command names or commands."""
-        for com in com_list:
+        for com in command_list:
             self.remove_command(com.name if isinstance(com, Command) else com)
 
     async def update_command_states(self):
@@ -261,9 +261,9 @@ async def send_in_global_channel(ctx: Context, channel: GlobalTextChannel, msg: 
         await ctx.send("Cannot send messages in given channel.")
 
 
-async def db_get_one(con: A_Connection, query: str, variable: tuple) -> Union[tuple, None]:
+async def db_get_one(connection: A_Connection, query: str, variable: tuple) -> Union[tuple, None]:
     """Returns the result of a database query and fetch_one."""
-    db = await con.cursor()
+    db = await connection.cursor()
     await db.execute(query, variable)
     result = await db.fetchone()
     result = tuple(result) if result is not None else None
@@ -271,48 +271,48 @@ async def db_get_one(con: A_Connection, query: str, variable: tuple) -> Union[tu
     return result
 
 
-async def db_get_all(con: A_Connection, query: str, variable: tuple) -> Union[List[tuple], None]:
+async def db_get_all(connection: A_Connection, query: str, variables: tuple) -> Union[List[tuple], None]:
     """Returns the result of a database query and fetch_all."""
-    db = await con.cursor()  # Fetch results from database.
-    await db.execute(query, variable)
+    db = await connection.cursor()  # Fetch results from database.
+    await db.execute(query, variables)
     result = await db.fetchall()
     result = [tuple(val) for val in result] if result is not None else None
     await db.close()
     return result
 
 
-async def db_set(con: A_Connection, query: str, variable: tuple) -> Union[asqlite.sqlite3.IntegrityError, None]:
+async def db_set(connection: A_Connection, query: str, variables: tuple) -> Union[asqlite.sqlite3.IntegrityError, None]:
     """Executes a database command without fetching anything."""
     try:  # Try executing database query.
-        await con.execute(query, variable)
+        await connection.execute(query, variables)
     except asqlite.sqlite3.IntegrityError as e:  # If we hit a database constraint, return error.
         return e
-    await con.commit()  # Commit changes and return None as no error was encountered.
+    await connection.commit()  # Commit changes and return None as no error was encountered.
     return None
 
 
-async def db_set_many(con: A_Connection, query: Tuple[str, ...], variables: Tuple[tuple, ...]) -> Union[asqlite.sqlite3.IntegrityError, None]:
+async def db_set_many(connection: A_Connection, queries: Tuple[str, ...], variables: Tuple[tuple, ...]) -> Union[asqlite.sqlite3.IntegrityError, None]:
     """Executes multiple database commands without fetching anything."""
-    if len(query) < len(variables):
+    if len(queries) < len(variables):
         raise RuntimeError("More variables than queries found.")
-    elif len(query) > len(variables):
+    elif len(queries) > len(variables):
         variables = list(variables)
-        while len(query) > len(variables):
+        while len(queries) > len(variables):
             variables.append(())
         variables = tuple(variables)
     try:  # Try executing database queries.
-        for query, variable in zip(query, variables):
-            await con.execute(query, variable)
+        for query, variable in zip(queries, variables):
+            await connection.execute(query, variable)
     except asqlite.sqlite3.IntegrityError as e:  # If we hit a database constraint, return error.
         return e
-    await con.commit()  # Commit changes and return None as no error was encountered.
+    await connection.commit()  # Commit changes and return None as no error was encountered.
     return None
 
 
-async def can_run(com: Command, ctx: Context) -> bool:
+async def can_run(command: Command, ctx: Context) -> bool:
     """This function uses command.can_run to see if a command can be run by a user, but does not raise exceptions."""
     try:
-        await com.can_run(ctx)
+        await command.can_run(ctx)
     except CommandError:
         return False
     else:
@@ -371,7 +371,7 @@ def clean(ctx: Context, text: str, escape_markdown: bool = True) -> str:
 
 
 def unembed_urls(text: str) -> str:
-    """Finds all URLs in a text and returns a list of them."""
+    """Finds all URLs in a text and encases them in <> to escape prevent embedding."""
     def repl(obj):
         """Function used in regex substitution."""
         return f"<{obj.group(0).strip('<').strip('>')}>"
