@@ -49,9 +49,6 @@ async def get_prefix(bot_object, message):
 if __name__ == "__main__":
     bot = tbb.TravusBotBase(command_prefix=get_prefix)  # Define bot object.
     bot.prefix = "!"  # Set default prefix, this will be overwritten by setup function later.
-    bot.help = {}  # Define empty help bot-variable.
-    bot.modules = {}  # Define empty modules bot-variable.
-    bot.has_started = False  # Flags that the initial setup in on_ready has not run yet.
 
     class CustomHelp(commands.HelpCommand):
         """Class for custom help command."""
@@ -194,7 +191,7 @@ if __name__ == "__main__":
                 else:
                     print(f"Default module '{mod}' loaded.")
             await bot.update_command_states()  # Make sure any loaded commands are in the right state. (hidden, disabled)
-            bot.has_started = 1  # Flag that the first time setup has been completed.
+            bot.has_started = True  # Flag that the first time setup has been completed.
         loaded_prefix = await tbb.db_get_one(bot.db_con, "SELECT value FROM settings WHERE flag = ?", ("prefix",))  # Get bot prefix for display in status message.
         await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=f"prefix: {loaded_prefix[0]}" if loaded_prefix[0] else "pings only"))  # Display status message.
         bot.is_connected = 1  # Flag that the bot is currently connected to Discord.

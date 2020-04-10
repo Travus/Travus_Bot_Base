@@ -403,6 +403,7 @@ class CoreFunctionalityCog(commands.Cog):
                 await ctx.send(f"Shutdown will commence in {time} seconds.")  # Report back, wait and shutdown.
                 await asleep(time)
                 await ctx.send("Shutting down!")
+                await self.bot.db_con.close()
                 await self.bot.close()
                 exit(0)
             except ValueError as e:  # If time parser encounters error, and error is exceeding of limit, report back.
