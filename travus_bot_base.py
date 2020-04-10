@@ -1,7 +1,7 @@
 import asyncio  # To make async db connection in custom bot __init__.
 import datetime  # To get current time.
 from re import compile, findall  # Regex functions used in clean function for detecting mentions.
-from typing import Tuple, Dict, List, Union, Callable, Type  # For type-hinting.
+from typing import Tuple, Dict, List, Union, Optional, Callable, Type  # For type-hinting.
 
 from discord import utils, Forbidden, Embed, Colour, Message, User, Member, TextChannel, VoiceChannel, CategoryChannel  # For embeds and deleting messages.
 from discord.ext.commands import Command, Cog, Bot, Context, Converter, UserConverter, BadArgument, TextChannelConverter, CommandError, UserInputError  # For type-hinting.
@@ -136,17 +136,17 @@ class TravusBotBase(Bot):
         """Initialization function loading all necessary information for TravusBotBase class."""
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        self.db_con = loop.run_until_complete(a_connect("database.sqlite"))
+        self.db_con: A_Connection = loop.run_until_complete(a_connect("database.sqlite"))
         loop.run_until_complete(db_set(self.db_con, "PRAGMA foreign_keys = 1", ()))
-        self.last_module_error = None
-        self.last_error = None
-        self.extension_ctx = None
+        self.last_module_error: Optional[str] = None
+        self.last_error: Optional[str] = None
+        self.extension_ctx: Optional[Context] = None
         self.help: Dict[str, TravusBotBase._HelpInfo] = {}
         self.modules: Dict[str, TravusBotBase._ModuleInfo] = {}
-        self.prefix = ""
-        self.delete_messages = 1
-        self.is_connected = 0
-        self.has_started = 0
+        self.prefix: str = ""
+        self.delete_messages: int = 1
+        self.is_connected: int = 0
+        self.has_started: bool = False
         super().__init__(*args, **kwargs)
 
     def get_bot_prefix(self) -> str:
