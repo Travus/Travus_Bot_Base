@@ -6,10 +6,10 @@ import discord  # To various Discord classes.
 from aiohttp import ClientConnectorError as CCError  # To detect connection errors.
 from discord.ext import commands  # For command functionality.
 
-import functions as func  # Common functions library.
+import travus_bot_base as tbb  # TBB functions and classes.
 
 
-def setup_bot(bot_object: func.TravusBotBase):
+def setup_bot(bot_object: tbb.TravusBotBase):
     """Sets command prefix and returns Discord token from the database."""
     if "modules" not in os.listdir("."):  # Makes sure modules directory exists.
         os.mkdir("modules")
@@ -47,7 +47,7 @@ async def get_prefix(bot_object, message):
 
 
 if __name__ == "__main__":
-    bot = func.TravusBotBase(command_prefix=get_prefix)  # Define bot object.
+    bot = tbb.TravusBotBase(command_prefix=get_prefix)  # Define bot object.
     bot.prefix = "!"  # Set default prefix, this will be overwritten by setup function later.
     bot.help = {}  # Define empty help bot-variable.
     bot.modules = {}  # Define empty modules bot-variable.
@@ -80,7 +80,7 @@ if __name__ == "__main__":
             non_passing = list(set(full_mapping).difference(set(filtered_mapping.values())))
             new_ctx = copy(self.context)
             new_ctx.guild = None
-            non_passing = {f'`{com.qualified_name}`¹': com for com in non_passing if await func.can_run(com, new_ctx)}
+            non_passing = {f'`{com.qualified_name}`¹': com for com in non_passing if await tbb.can_run(com, new_ctx)}
             filtered_mapping.update(non_passing)
             for com_text, com in filtered_mapping.items():
                 if com.qualified_name in bot.help.keys():
@@ -142,15 +142,15 @@ if __name__ == "__main__":
     async def on_ready():
         """Loads additional flags and help info, loads default modules and sets bot presence."""
         if not bot.has_started:  # If first time setup has not been completed.
-            delete_msgs = await func.db_get_one(bot.db_con, "SELECT value FROM settings WHERE flag = ?", ("delete_messages", ))
+            delete_msgs = await tbb.db_get_one(bot.db_con, "SELECT value FROM settings WHERE flag = ?", ("delete_messages",))
             if delete_msgs is None:  # If no delete message flag is in database, set it to off in runtime and database.
-                await func.db_set(bot.db_con, "INSERT INTO settings VALUES (?, ?)", ("delete_messages", "0"))
+                await tbb.db_set(bot.db_con, "INSERT INTO settings VALUES (?, ?)", ("delete_messages", "0"))
                 delete_msgs = (0, )
             bot.delete_messages = int(delete_msgs[0])  # Set delete messages flag.
             bot_author = "[Travus](https://github.com/Travus):\n\tTravus Bot Base\n\tCore functions\n\n[Rapptz](https://github.com/Rapptz):\n\tDiscord.py\n\tasqlite"
-            bot_description = await func.db_get_one(bot.db_con, "SELECT value FROM settings WHERE flag = ?", ("bot_description", ))
+            bot_description = await tbb.db_get_one(bot.db_con, "SELECT value FROM settings WHERE flag = ?", ("bot_description",))
             bot_description = (bot_description or ("No description for the bot was found. A description can be set using the setup file.", ))[0]
-            bot_additional_credits = await func.db_get_one(bot.db_con, "SELECT value FROM settings WHERE flag = ?", ("bot_additional_credits", ))
+            bot_additional_credits = await tbb.db_get_one(bot.db_con, "SELECT value FROM settings WHERE flag = ?", ("bot_additional_credits",))
             if bot_additional_credits:
                 bot_additional_credits = bot_additional_credits[0].replace("\\n", "\n").replace("\\r", "\n").replace("\\t", "\t")
             bot.add_module(bot.user.name, bot_author, None, bot_description, bot_additional_credits, bot.user.avatar_url)  # Add about command for bot.
@@ -162,15 +162,15 @@ if __name__ == "__main__":
                     raise FileNotFoundError("Core commands file not found.")
             except FileNotFoundError:  # If core_commands.py file is not found, error to console and shut down.
                 await bot.db_con.close()
-                print(f"[{func.cur_time()}] Core commands file not found.")
+                print(f"[{tbb.cur_time()}] Core commands file not found.")
                 exit(4)
             except Exception as e:  # If error is encountered in core_commands.py error to console and shut down.
                 await bot.db_con.close()
                 if isinstance(e, commands.ExtensionNotFound):  # If import error, clarify error further.
                     e = e.__cause__
-                print(f"[{func.cur_time()}] Core functionality file failed to load.\n\nError:\n{e}")
+                print(f"[{tbb.cur_time()}] Core functionality file failed to load.\n\nError:\n{e}")
                 exit(3)
-            default_modules = await func.db_get_all(bot.db_con, "SELECT module FROM default_modules", ())  # Get default modules.
+            default_modules = await tbb.db_get_all(bot.db_con, "SELECT module FROM default_modules", ())  # Get default modules.
             if default_modules:  # If default modules were found, get their names from the response.
                 default_modules = [mod[0] for mod in default_modules]
             for mod in default_modules:  # Save module and help info before loading in case we need to roll back, then load default modules.
@@ -183,19 +183,19 @@ if __name__ == "__main__":
                     else:
                         raise FileNotFoundError("Core commands file not found.")
                 except FileNotFoundError:  # If module wasn't found.
-                    print(f"[{func.cur_time()}] Default module '{mod}' not found.")
+                    print(f"[{tbb.cur_time()}] Default module '{mod}' not found.")
                 except Exception as e:  # If en error was encountered while loading default module, reload old info ad error to console.
                     bot.help = old_help
                     bot.modules = old_modules
                     if isinstance(e, commands.ExtensionNotFound):  # If import error, clarify further.
                         e = e.__cause__
-                    print(f"[{func.cur_time()}] Default module '{mod}' encountered and error.\n\n{str(e)}")
+                    print(f"[{tbb.cur_time()}] Default module '{mod}' encountered and error.\n\n{str(e)}")
                     bot.last_module_error = f"The `{mod}` module failed while loading. The error was:\n\n{str(e)}"
                 else:
                     print(f"Default module '{mod}' loaded.")
             await bot.update_command_states()  # Make sure any loaded commands are in the right state. (hidden, disabled)
             bot.has_started = 1  # Flag that the first time setup has been completed.
-        loaded_prefix = await func.db_get_one(bot.db_con, "SELECT value FROM settings WHERE flag = ?", ("prefix", ))  # Get bot prefix for display in status message.
+        loaded_prefix = await tbb.db_get_one(bot.db_con, "SELECT value FROM settings WHERE flag = ?", ("prefix",))  # Get bot prefix for display in status message.
         await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=f"prefix: {loaded_prefix[0]}" if loaded_prefix[0] else "pings only"))  # Display status message.
         bot.is_connected = 1  # Flag that the bot is currently connected to Discord.
         print(f"{bot.user.name} is ready!\n------------------------------")
@@ -205,7 +205,7 @@ if __name__ == "__main__":
     async def on_disconnect():
         """Writes to console if bot disconnects from Discord."""
         if bot.is_connected:  # If the bot was last connected, log disconnect to console.
-            print(f"[{func.cur_time()}] Disconnected from Discord.")
+            print(f"[{tbb.cur_time()}] Disconnected from Discord.")
             bot.is_connected = 0  # Flag that the bot is currently disconnected from Discord.
 
 
@@ -216,7 +216,7 @@ if __name__ == "__main__":
             try:  # Try to delete message.
                 await ctx.message.delete()
             except discord.Forbidden:  # Log to console if missing permission to delete message.
-                print(f"[{func.cur_time()}] Error: Bot does not have required permissions to delete message.")
+                print(f"[{tbb.cur_time()}] Error: Bot does not have required permissions to delete message.")
 
 
     @bot.event
@@ -228,29 +228,29 @@ if __name__ == "__main__":
             if hasattr(ctx.command, "usage") and ctx.command.usage:
                 await ctx.send(f"Correct syntax: `{bot.get_bot_prefix()}{ctx.command.full_parent_name + ' ' if ctx.command.full_parent_name else ''}{ctx.invoked_with} {ctx.command.usage or ''}`")
         elif isinstance(error, commands.NotOwner):  # Log to console.
-            print(f'[{func.cur_time()}] {ctx.message.author.id}: Command "{ctx.command}" requires bot owner status')
+            print(f'[{tbb.cur_time()}] {ctx.message.author.id}: Command "{ctx.command}" requires bot owner status')
         elif isinstance(error, commands.MissingPermissions):  # Log to console.
-            print(f'[{func.cur_time()}] {ctx.message.author.id}: Command "{ctx.command}" requires additional permissions: {", ".join(error.missing_perms)}')
+            print(f'[{tbb.cur_time()}] {ctx.message.author.id}: Command "{ctx.command}" requires additional permissions: {", ".join(error.missing_perms)}')
         elif isinstance(error, commands.MissingRole):  # Log to console.
-            print(f'[{func.cur_time()}] {ctx.message.author.id}: Command "{ctx.command}" requires role: {error.missing_role}')
+            print(f'[{tbb.cur_time()}] {ctx.message.author.id}: Command "{ctx.command}" requires role: {error.missing_role}')
         elif isinstance(error, commands.MissingAnyRole):  # Log to console.
-            print(f'[{func.cur_time()}] {ctx.message.author.id}: Command "{ctx.command}" requires role: {" or ".join(error.missing_roles)}')
+            print(f'[{tbb.cur_time()}] {ctx.message.author.id}: Command "{ctx.command}" requires role: {" or ".join(error.missing_roles)}')
         elif isinstance(error, commands.CommandNotFound):  # Log to console.
-            print(f'[{func.cur_time()}] {ctx.message.author.id}: {error}')
+            print(f'[{tbb.cur_time()}] {ctx.message.author.id}: {error}')
         elif isinstance(error, CCError):  # Log to console if message wasn't properly sent to Discord.
-            print(f'[{func.cur_time()}] {ctx.message.author.id}: Connection error to Discord. Message lost.')
+            print(f'[{tbb.cur_time()}] {ctx.message.author.id}: Connection error to Discord. Message lost.')
         elif isinstance(error.__cause__, discord.Forbidden):  # Log to console if lacking permissions.
-            print(f'[{func.cur_time()}] {ctx.message.author.id}: Missing permissions.')
+            print(f'[{tbb.cur_time()}] {ctx.message.author.id}: Missing permissions.')
         elif error is not None:  # Log error to console.
-            print(f'[{func.cur_time()}] {ctx.message.author.id}: {error}')
-        bot.last_error = f'[{func.cur_time()}] {ctx.message.author.id}: {error}'
+            print(f'[{tbb.cur_time()}] {ctx.message.author.id}: {error}')
+        bot.last_error = f'[{tbb.cur_time()}] {ctx.message.author.id}: {error}'
 
 
     bot.help_command = CustomHelp()  # Set bot to use custom help command.
     try:  # Run the bot.
         bot.run(setup_bot(bot))
     except discord.LoginFailure:  # Exit if running the bot failed. Token probably wrong.
-        print(f"[{func.cur_time()}] Error: Login failure, bot token is likely wrong or Discord is down!")
+        print(f"[{tbb.cur_time()}] Error: Login failure, bot token is likely wrong or Discord is down!")
         exit(2)
 
 

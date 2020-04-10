@@ -10,10 +10,10 @@ from aiohttp import ClientSession
 from discord import Member, Role  # For type-hinting and exceptions.
 from discord.ext import commands  # For implementation of bot commands.
 
-import functions as func  # Shared function library.
+import travus_bot_base as tbb  # TBB functions and classes.
 
 
-def setup(bot: func.TravusBotBase):
+def setup(bot: tbb.TravusBotBase):
     """Setup function ran when module is loaded."""
     bot.add_cog(DevCog(bot))  # Add cog and command help info.
     bot.add_module("Dev", "[Travus](https://github.com/Travus):\n\tEval command\n\tRoleID command\n\tChannelID command\n\tLast error command\n\n[Rapptz](https://github.com/Rapptz):\n\tSudo command",
@@ -27,7 +27,7 @@ def setup(bot: func.TravusBotBase):
     bot.add_command_help(DevCog.lasterror, "Dev", {"perms": ["Manage Server"]}, [""])
 
 
-def teardown(bot: func.TravusBotBase):
+def teardown(bot: tbb.TravusBotBase):
     """Teardown function ran when module is unloaded."""
     bot.remove_cog("DevCog")  # Remove cog and command help info.
     bot.remove_module("Dev")
@@ -57,7 +57,7 @@ async def mystbin_send(text: str, line_length: int = None) -> Optional[str]:
 class DevCog(commands.Cog):
     """Cog that holds dev functionality."""
 
-    def __init__(self, bot: func.TravusBotBase):
+    def __init__(self, bot: tbb.TravusBotBase):
         """Initialization function loading bot object for cog."""
         self.bot = bot
         self._last_result = None
@@ -65,7 +65,7 @@ class DevCog(commands.Cog):
     async def _mystbin_send(self, ctx: commands.Context, text: str):
         """Send the text if it's short enough, otherwise links to a Mystbin of the text."""
         if text is not None:
-            token = (await func.db_get_one(self.bot.db_con, "SELECT value FROM settings WHERE flag = ?", ("discord_token",)))[0]
+            token = (await tbb.db_get_one(self.bot.db_con, "SELECT value FROM settings WHERE flag = ?", ("discord_token",)))[0]
             text = text.replace(token, "<TOKEN REDACTED>") if isinstance(text, str) else text  # Remove the token from the output.
             if len(text) > 1950:
                 lines = text.split("\n")
@@ -150,7 +150,7 @@ class DevCog(commands.Cog):
     @commands.is_owner()
     @commands.guild_only()
     @commands.command(name="sudo", usage="<USER> (CHANNEL) <COMMAND>")
-    async def sudo(self, ctx: commands.Context, user: Member, channel: Optional[func.GlobalTextChannel], *, command: str):
+    async def sudo(self, ctx: commands.Context, user: Member, channel: Optional[tbb.GlobalTextChannel], *, command: str):
         """This command lets you run commands as another user, optionally in other channels. If the channel argument is
         skipped and the bot fails to parse the argument as a channel it will ignore the channel argument and move on to
         parsing the command instead. In this case the command will be sent from the channel you are currently in."""
@@ -170,7 +170,7 @@ class DevCog(commands.Cog):
     @commands.guild_only()
     @commands.has_permissions(manage_roles=True)
     @commands.command(name="roleids", aliases=["roleid"], usage="<ROLE/all> (OUTPUT CHANNEL/dm)")
-    async def roleids(self, ctx: commands.Context, role: Union[Role, str], resp_channel: Optional[func.GlobalTextChannel]):
+    async def roleids(self, ctx: commands.Context, role: Union[Role, str], resp_channel: Optional[tbb.GlobalTextChannel]):
         """This command gives you role IDs of one or all roles in the server depending on if a role or `all` is passed
         along. You can also pass along a channel, in this server or otherwise, in which case the response is sent in
         that channel. Sending `dm` instead of a channel will send you the result in direct messages."""
@@ -180,12 +180,12 @@ class DevCog(commands.Cog):
             raise commands.BadArgument("Role could not be parsed and string is not 'all'.")
         else:
             response = f"{role.name}: {role.id}"
-        await func.send_in_global_channel(ctx, resp_channel, f"```{response}```")
+        await tbb.send_in_global_channel(ctx, resp_channel, f"```{response}```")
 
     @commands.guild_only()
     @commands.has_permissions(manage_channels=True)
     @commands.command(name="channelids", aliases=["channelid"], usage="<CHANNEL/all> (OUTPUT CHANNEL/dm)")
-    async def channelids(self, ctx: commands.Context, channel: Union[func.GlobalChannel, str], resp_channel: Optional[func.GlobalTextChannel]):
+    async def channelids(self, ctx: commands.Context, channel: Union[tbb.GlobalChannel, str], resp_channel: Optional[tbb.GlobalTextChannel]):
         """This command gives you channel IDs of one or all channels in the server depending on if a channel or `all`
         is passed along. You can also pass along a second channel, in this server or otherwise, in which case the
         response is sent in that channel. Sending `dm` instead of a second channel will send you the result in direct
@@ -199,7 +199,7 @@ class DevCog(commands.Cog):
         else:
             if hasattr(channel, "name") and hasattr(channel, "id"):
                 response = f"{channel.name}: {channel.id}"
-        await func.send_in_global_channel(ctx, resp_channel, f"```{response}```")
+        await tbb.send_in_global_channel(ctx, resp_channel, f"```{response}```")
 
     @commands.has_permissions(administrator=True)
     @commands.command(name="lasterror", aliases=["lerror", "_error"])
@@ -208,6 +208,6 @@ class DevCog(commands.Cog):
         not be listed by this command. To see the last error encountered while loading modules see the `module error`
         command. This command retains this information until another error replaces it, or the bot shuts down."""
         if self.bot.last_error:
-            await ctx.send(func.clean(ctx, self.bot.last_error))
+            await ctx.send(tbb.clean(ctx, self.bot.last_error))
         else:
             await ctx.send("There have not been any errors since the last restart.")

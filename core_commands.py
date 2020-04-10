@@ -4,11 +4,11 @@ from os import listdir  # To check files on disk.
 from discord import Embed, Activity, ActivityType  # For bot status
 from discord.ext import commands  # For implementation of bot commands.
 
-import functions as func  # Shared function library.
-from functions import clean  # Shorthand for cleaning output.
+import travus_bot_base as tbb  # TBB functions and classes.
+from travus_bot_base import clean  # Shorthand for cleaning output.
 
 
-def setup(bot: func.TravusBotBase):
+def setup(bot: tbb.TravusBotBase):
     """Setup function ran when module is loaded."""
     bot.add_cog(CoreFunctionalityCog(bot))  # Add cog and command help info.
     bot.add_command_help(CoreFunctionalityCog.prefix, "Core", None, ["$", "bot!", "bot ?", "remove"])
@@ -32,7 +32,7 @@ def setup(bot: func.TravusBotBase):
     bot.add_command_help(CoreFunctionalityCog.shutdown, "Core", None, ["", "1h", "1h30m", "10m-30s", "2m30s"])
 
 
-def teardown(bot: func.TravusBotBase):
+def teardown(bot: tbb.TravusBotBase):
     """Teardown function ran when module is unloaded."""
     bot.remove_cog("CoreFunctionalityCog")  # Remove cog and command help info.
     bot.remove_command_help(CoreFunctionalityCog)
@@ -41,7 +41,7 @@ def teardown(bot: func.TravusBotBase):
 class CoreFunctionalityCog(commands.Cog):
     """Cog that holds default functionality."""
 
-    def __init__(self, bot: func.TravusBotBase):
+    def __init__(self, bot: tbb.TravusBotBase):
         """Initialization function loading bot object for cog."""
         self.bot = bot
 
@@ -56,19 +56,19 @@ class CoreFunctionalityCog(commands.Cog):
                     self.bot.load_extension(f"modules.{mod}")
                     await self.bot.update_command_states()
                     await ctx.send(f"Module `{clean(ctx, mod)}` successfully loaded.")
-                    print(f"[{func.cur_time()}] {ctx.message.author.id} loaded '{mod}' module.")
+                    print(f"[{tbb.cur_time()}] {ctx.message.author.id} loaded '{mod}' module.")
                 else:
                     await ctx.send(f"No `{clean(ctx, mod)}` module was found.")
             elif operation == "unload":
                 self.bot.unload_extension(f"modules.{mod}")
                 await ctx.send(f"Module `{clean(ctx, mod)}` successfully unloaded.")
-                print(f"[{func.cur_time()}] {ctx.message.author.id} unloaded '{mod}' module.")
+                print(f"[{tbb.cur_time()}] {ctx.message.author.id} unloaded '{mod}' module.")
             elif operation == "reload":  # Try reloading the module.
                 if f"{mod}.py" in listdir("modules"):  # Check if module is even still there before we reload.
                     self.bot.reload_extension(f"modules.{mod}")
                     await self.bot.update_command_states()
                     await ctx.send(f"Module `{clean(ctx, mod)}` successfully reloaded.")
-                    print(f"[{func.cur_time()}] {ctx.message.author.id} reloaded '{mod}' module.")
+                    print(f"[{tbb.cur_time()}] {ctx.message.author.id} reloaded '{mod}' module.")
                 else:
                     if mod in self.bot.modules:
                         await ctx.send(f"The `{clean(ctx, mod)}` module file is no longer found on disk. Reload canceled.")
@@ -84,7 +84,7 @@ class CoreFunctionalityCog(commands.Cog):
             await ctx.send("**Error! Something went really wrong! Contact module maintainer.**\nError printed to console and stored in module error command.")
             if isinstance(e, commands.ExtensionNotFound):  # Clarify error further in case it was an import error.
                 e = e.__cause__
-            print(f"[{func.cur_time()}] {ctx.message.author.id} tried loading '{mod}' module, and it failed:\n\n{str(e)}")
+            print(f"[{tbb.cur_time()}] {ctx.message.author.id} tried loading '{mod}' module, and it failed:\n\n{str(e)}")
             self.bot.last_module_error = f"The `{clean(ctx, mod)}` module failed while loading. The error was:\n\n{clean(ctx, str(e))}"
         finally:  # Reset context as loading has concluded.
             self.bot.extension_ctx = None
@@ -97,7 +97,7 @@ class CoreFunctionalityCog(commands.Cog):
         space at the start and end of messages. The prefix is saved across reboots. Setting the prefix to `remove` will remove the prefix.
         The bot will always listen to pings as if they were a prefix, regardless of if there is another prefix set or not."""
         self.bot.prefix = new_prefix if new_prefix.lower() != "remove" else None  # Is user sends 'remove' prefix is set to None.
-        await func.db_set(self.bot.db_con, "UPDATE settings SET value = ? WHERE flag = 'prefix'", (new_prefix if new_prefix.lower() != "remove" else "",))  # Database entry is empty if no prefix.
+        await tbb.db_set(self.bot.db_con, "UPDATE settings SET value = ? WHERE flag = 'prefix'", (new_prefix if new_prefix.lower() != "remove" else "",))  # Database entry is empty if no prefix.
         await self.bot.change_presence(activity=Activity(type=ActivityType.listening, name=f"prefix: {new_prefix}" if new_prefix.lower() != "remove" else "pings only"))  # Set status.
         if new_prefix.lower() != "remove":  # Give feedback to user.
             await ctx.send(f"The bot prefix has successfully been changed to `{new_prefix}`.")
@@ -175,7 +175,7 @@ class CoreFunctionalityCog(commands.Cog):
         """This command lists all current default modules. For more information on modules see the help text for the `module`
         command. All modules in this list start as soon as the bot is launched. For a list of all available or loaded modules
         see the `module list` command."""
-        result = await func.db_get_all(self.bot.db_con, "SELECT module FROM default_modules", ())  # Get all default modules from database and display them.
+        result = await tbb.db_get_all(self.bot.db_con, "SELECT module FROM default_modules", ())  # Get all default modules from database and display them.
         result = [f"`{clean(ctx, val[0])}`" for val in result] if len(result) > 0 else None
         await ctx.send(f"Default modules: {'None' if result is None else ', '.join(result)}")
 
@@ -187,7 +187,7 @@ class CoreFunctionalityCog(commands.Cog):
         For that, see the `module load` command. For a list of existing default modules, see the `default list` command. For more
         info on modules see the help text for the `module` command."""
         if f"{mod}.py" in listdir("modules"):  # Check if such a module even exists.
-            response = await func.db_set(self.bot.db_con, "INSERT INTO default_modules VALUES (?)", (mod,))  # Add the default module to the database.
+            response = await tbb.db_set(self.bot.db_con, "INSERT INTO default_modules VALUES (?)", (mod,))  # Add the default module to the database.
             if not response:  # If no error occurred while adding the module to the database report back.
                 await ctx.send(f"The `{clean(ctx, mod)}` module is now a default module.")
             else:  # If an error occurred while adding the module to the database, then it already existed. Report error.
@@ -202,9 +202,9 @@ class CoreFunctionalityCog(commands.Cog):
         longer automatically be loaded when the bot starts. This command will not unload commands that are already loaded.
         For that, see the `module unload` command. For a list of existing default modules, see the `default list` command.
         For more info on modules see the help text for the `module` command."""
-        result = await func.db_get_one(self.bot.db_con, "SELECT module FROM default_modules WHERE module = ?", (mod,))  # See if the module is a default module to begin with.
+        result = await tbb.db_get_one(self.bot.db_con, "SELECT module FROM default_modules WHERE module = ?", (mod,))  # See if the module is a default module to begin with.
         if result:
-            await func.db_set(self.bot.db_con, "DELETE FROM default_modules WHERE module = ?", (mod,))  # Remove it from the default module database.
+            await tbb.db_set(self.bot.db_con, "DELETE FROM default_modules WHERE module = ?", (mod,))  # Remove it from the default module database.
             await ctx.send(f"Removed `{clean(ctx, mod)}` module from default modules.")
         else:
             await ctx.send(f"No `{clean(ctx, mod)}` module in default modules.")  # Report back if it isn't in the database to begin with.
@@ -217,12 +217,12 @@ class CoreFunctionalityCog(commands.Cog):
         default this is enabled. This setting is saved across restarts."""
         op = operation.lower()
         if op in ["enable", "true", "on", "yes", "y", "+", "1"]:  # Values interpreted as true.
-            await func.db_set(self.bot.db_con, "UPDATE settings SET value = ? WHERE flag = ?", ("1", "delete_messages"))  # Update database.
+            await tbb.db_set(self.bot.db_con, "UPDATE settings SET value = ? WHERE flag = ?", ("1", "delete_messages"))  # Update database.
             self.bot.delete_messages = 1
             self.bot.delete_messages = 1
             await ctx.send("Now deleting user commands.")
         elif op in ["disable", "false", "off", "no", "n", "-", "0"]:  # Values interpreted as false.
-            await func.db_set(self.bot.db_con, "UPDATE settings SET value = ? WHERE flag = ?", ("0", "delete_messages"))  # Update database.
+            await tbb.db_set(self.bot.db_con, "UPDATE settings SET value = ? WHERE flag = ?", ("0", "delete_messages"))  # Update database.
             self.bot.delete_messages = 0
             await ctx.send("No longer deleting user commands.")
         else:
@@ -240,15 +240,15 @@ class CoreFunctionalityCog(commands.Cog):
     async def _command_get_state(self, command: commands.Command) -> int:
         """Helper function for command command that gets the state of the command."""
         cog_com_name = f"{command.cog.__class__.__name__ + '.' if command.cog else ''}{command.name}"
-        response = await func.db_get_one(self.bot.db_con, "SELECT state FROM command_states WHERE command = ?", (cog_com_name,))
+        response = await tbb.db_get_one(self.bot.db_con, "SELECT state FROM command_states WHERE command = ?", (cog_com_name,))
         if response is None:
-            await func.db_set(self.bot.db_con, "INSERT INTO command_states VALUES (?, ?)", (cog_com_name, 0))  # Set enabled and not visible if not in database.
+            await tbb.db_set(self.bot.db_con, "INSERT INTO command_states VALUES (?, ?)", (cog_com_name, 0))  # Set enabled and not visible if not in database.
             response = (0,)
         return response[0]
 
     async def _command_set_state(self, command: commands.Command, state: int):
         """Helper function for command command that sets the state of the command."""
-        await func.db_set(self.bot.db_con, "UPDATE command_states SET state = ? WHERE command = ?", (state, f"{command.cog.__class__.__name__ + '.' if command.cog else ''}{command.name}"))
+        await tbb.db_set(self.bot.db_con, "UPDATE command_states SET state = ? WHERE command = ?", (state, f"{command.cog.__class__.__name__ + '.' if command.cog else ''}{command.name}"))
 
     @commands.has_permissions(administrator=True)
     @command.command(name="enable", usage="<COMMAND NAME>")
@@ -399,7 +399,7 @@ class CoreFunctionalityCog(commands.Cog):
             exit(0)
         else:
             try:
-                time = func.parse_time(countdown, 0, 86400, True)  # Parse time to get time in seconds, error if time exceeds limits.
+                time = tbb.parse_time(countdown, 0, 86400, True)  # Parse time to get time in seconds, error if time exceeds limits.
                 await ctx.send(f"Shutdown will commence in {time} seconds.")  # Report back, wait and shutdown.
                 await asleep(time)
                 await ctx.send("Shutting down!")
@@ -410,6 +410,6 @@ class CoreFunctionalityCog(commands.Cog):
                     await ctx.send("The time for this command must be between 0 seconds to 24 hours.")
                 else:  # If another error is encountered, log to console.
                     await ctx.send("The time could not be parsed correctly. Check the help command for shutdown for examples of times.")
-                    print(f'[{func.cur_time()}] {ctx.message.author.id}: {str(e)}')
+                    print(f'[{tbb.cur_time()}] {ctx.message.author.id}: {str(e)}')
 
 # ToDo: Add usage command to README
