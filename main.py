@@ -63,7 +63,7 @@ if __name__ == "__main__":
         async def _send_help_entry(self, command_object):
             if command_object.qualified_name in bot.help.keys():
                 if command_object.enabled:
-                    embed = bot.help[command_object.qualified_name].make_embed(bot.get_bot_prefix(), self.context)  # Send command help info if enabled.
+                    embed = bot.help[command_object.qualified_name].make_help_embed(self.context)  # Send command help info if enabled.
                     await self.get_destination().send(embed=embed)
                 else:
                     await self.get_destination().send(f"The `{command_object.qualified_name}` command is currently disabled.")  # Give feedback if disabled.

@@ -330,12 +330,12 @@ class CoreFunctionalityCog(commands.Cog):
         bot's name is used then information about the bot itself is shown."""
         if module_name is None:  # If no value is passed along we display the about page for the bot itself.
             if self.bot.user.name.lower() in self.bot.modules.keys():  # Check if the bot has an entry.
-                embed = self.bot.modules[self.bot.user.name.lower()].make_embed(ctx)  # Make and send response.
+                embed = self.bot.modules[self.bot.user.name.lower()].make_about_embed(ctx)  # Make and send response.
                 await ctx.send(embed=embed)
             else:
                 raise RuntimeError(f"Bot info module not found.")
         elif module_name.lower() in self.bot.modules.keys():  # Check if the passed along value has an entry.
-            embed = self.bot.modules[module_name.lower()].make_embed(ctx)  # Make and send response.
+            embed = self.bot.modules[module_name.lower()].make_about_embed(ctx)  # Make and send response.
             await ctx.send(embed=embed)
         else:
             response = f"No information for `{clean(ctx, module_name)}` module was found."  # Prepare error message for missing entry.

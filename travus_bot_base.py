@@ -64,9 +64,10 @@ class TravusBotBase(Bot):
     class _HelpInfo:
         """Class that holds help info for commands."""
 
-        def __init__(self, command: Command, category: str = "no category", restrictions: Dict[str, Union[bool, List[str], str]] = None, examples: List[str] = None):
+        def __init__(self, get_prefix: Callable, command: Command, category: str = "no category", restrictions: Dict[str, Union[bool, List[str], str]] = None, examples: List[str] = None):
             """Initialization function loading all necessary information for HelpInfo class."""
             res = restrictions  # Shortening often used variable name.
+            self.get_prefix = get_prefix
             self.name = command.qualified_name
             self.description = command.help.replace("\n", " ") if command.help else "No description found."  # Remove newlines from multi-line docstrings.
             self.aliases = list(command.aliases) or []
@@ -75,7 +76,7 @@ class TravusBotBase(Bot):
             self.examples = examples or []
             self.permissions = res["perms"] if isinstance(res, dict) and "perms" in res.keys() else []
             self.roles = res["roles"] if isinstance(res, dict) and "roles" in res.keys() else []
-            self.other_restrictions = res["other"] if isinstance(res, dict) and "other" in res.keys() else False
+            self.other_restrictions = res["other"] if isinstance(res, dict) and "other" in res.keys() else ""
             self.owner_only, self.guild_only, self.dm_only = False, False, False
             for check in command.checks:
                 if "is_owner" in str(check):
@@ -85,7 +86,7 @@ class TravusBotBase(Bot):
                 if "dm_only" in str(check):
                     self.dm_only = True
 
-        def make_embed(self, prefix: str, ctx: Context) -> Embed:
+        def make_help_embed(self, ctx: Context) -> Embed:
             """Creates embeds for command based on info stored in class."""
             desc = f"Category: {self.category.title()}\n\n{self.description}"
             embed = Embed(colour=Colour(0x4a4a4a), description=desc if len(desc) < 1950 else f"{desc[:1949]}...", timestamp=datetime.datetime.utcnow())
@@ -99,7 +100,7 @@ class TravusBotBase(Bot):
             restrictions += ("\nAny role of:\n" + "\n".join([f"   {role}" for role in self.roles])) if self.roles else ""
             restrictions += f"\n{self.other_restrictions}" if self.other_restrictions else ""
             embed.add_field(name="Restrictions", value=f"```{restrictions}```", inline=True)
-            examples = "\n".join([f"`{prefix}{self.name} {example}`" if example else f"`{prefix}{self.name}`" for example in self.examples])  # Make and add examples.
+            examples = "\n".join([f"`{self.get_prefix()}{self.name} {example}`" if example else f"`{self.get_prefix()}{self.name}`" for example in self.examples])  # Make and add examples.
             embed.add_field(name="Examples", value=examples or "No examples found.", inline=False)
             embed.set_footer(text=ctx.message.author.display_name, icon_url=ctx.message.author.avatar_url)
             return embed
@@ -117,7 +118,7 @@ class TravusBotBase(Bot):
             self.image = image_link
             self.usage = usage
 
-        def make_embed(self, ctx: Context) -> Embed:
+        def make_about_embed(self, ctx: Context) -> Embed:
             """Creates embeds for module based on info stored in class."""
             desc = self.description.replace("_prefix_", self.get_prefix())
             embed = Embed(colour=Colour(0x4a4a4a), description=desc if len(desc) < 1950 else f"{desc[:1949]}...", timestamp=datetime.datetime.utcnow())
@@ -206,7 +207,7 @@ class TravusBotBase(Bot):
 
     def add_command_help(self, command: Command, category: str = "no category", restrictions: Dict[str, Union[bool, List[str], str]] = None, examples: List[str] = None):
         """Function that is used to add help info to the bot correctly. Used to minimize developmental errors."""
-        self.help[command.qualified_name] = self._HelpInfo(command, category, restrictions, examples)
+        self.help[command.qualified_name] = self._HelpInfo(self.get_bot_prefix, command, category, restrictions, examples)
 
     def remove_command_help(self, command: Union[Command, Cog.__class__, str, List[Union[Command, str]]]):
         """Function that is used to remove command help info from the bot correctly. Used to minimize developmental errors."""
