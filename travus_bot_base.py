@@ -209,7 +209,7 @@ class TravusBotBase(Bot):
         """Function that is used to add help info to the bot correctly. Used to minimize developmental errors."""
         self.help[command.qualified_name] = self._HelpInfo(self.get_bot_prefix, command, category, restrictions, examples)
 
-    def remove_command_help(self, command: Union[Command, Cog.__class__, str, List[Union[Command, str]]]):
+    def remove_command_help(self, command: Union[Command, Type[Cog], str, List[Union[Command, str]]]):
         """Function that is used to remove command help info from the bot correctly. Used to minimize developmental errors."""
         if isinstance(command, list):  # Remove all in list, if list is passed.
             for com in command:
