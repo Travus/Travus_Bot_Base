@@ -248,6 +248,3 @@ if __name__ == "__main__":
     except discord.LoginFailure:  # Exit if running the bot failed. Token probably wrong.
         print(f"[{tbb.cur_time()}] Error: Login failure, bot token is likely wrong or Discord is down!")
         exit(2)
-
-
-# ToDo: Change additional customization section in README to use links to lines, need to have things ready in GitHub for this
