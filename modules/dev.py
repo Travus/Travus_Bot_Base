@@ -17,7 +17,7 @@ def setup(bot: tbb.TravusBotBase):
     """Setup function ran when module is loaded."""
     bot.add_cog(DevCog(bot))  # Add cog and command help info.
     bot.add_module("Dev", "[Travus](https://github.com/Travus):\n\tEval command\n\tRoleID command\n\tChannelID command\n\tLast error command\n\n[Rapptz](https://github.com/Rapptz):\n\tSudo command",
-                   DevCog, """This module includes developer functionality that supply information useful for programming, such as IDs, as well as
+                   DevCog.usage, """This module includes developer functionality that supply information useful for programming, such as IDs, as well as
                    some debug and testing options such as code execution and remote command execution. Also allows checking the most recent error.""",
                    "[Rapptz](https://github.com/Rapptz):\n\tEval example\n\n[nerdstep710](https://github.com/nerdstep710):\n\tMystbin example")
     bot.add_command_help(DevCog.eval, "Dev", None, ["return 4 + 7", "return channel.id"])

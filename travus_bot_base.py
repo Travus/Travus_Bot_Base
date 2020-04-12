@@ -108,13 +108,13 @@ class TravusBotBase(Bot):
     class _ModuleInfo:
         """Class that holds info for modules."""
 
-        def __init__(self, get_prefix: Callable, name: str, author: str, usage: Union[str, Embed] = None, description: str = None, additional_credits: str = None, image_link: str = None):
+        def __init__(self, get_prefix: Callable, name: str, author: str, usage: Callable[[], Union[str, Embed]] = None, description: str = None, extra_credits: str = None, image_link: str = None):
             """Initialization function loading all necessary information for ModuleInfo class."""
             self.get_prefix = get_prefix
             self.name = name
             self.author = author.replace("\t", "\u200b\u0009\u200b\u0009\u200b\u0009\u200b\u0009\u200b\u0009")  # Convert tabs to non-skipped spaces.
             self.description = description.replace("\n", " ") if description else "No module description found."  # Remove newline from multi-line strings.
-            self.credits = additional_credits.replace("\t", "\u200b\u0009\u200b\u0009\u200b\u0009\u200b\u0009\u200b\u0009") if additional_credits else None
+            self.credits = extra_credits.replace("\t", "\u200b\u0009\u200b\u0009\u200b\u0009\u200b\u0009\u200b\u0009") if extra_credits else None
             self.image = image_link
             self.usage = usage
 
@@ -157,14 +157,8 @@ class TravusBotBase(Bot):
         else:
             return f"@{self.user.display_name}#{self.user.discriminator} "
 
-    def add_module(self, name: str, author: str, cog: Type[Cog] = None, description: str = None, additional_credits: str = None, image_link: str = None):
+    def add_module(self, name: str, author: str, usage: Callable[[], Union[str, Embed]] = None, description: str = None, additional_credits: str = None, image_link: str = None):
         """Function that is used to add module info to the bot correctly. Used to minimize developmental errors."""
-        usage = None
-        if hasattr(cog, "usage") and isinstance(cog.usage, (str, Callable)):
-            if isinstance(cog.usage, str):
-                usage = cog.usage
-            elif isinstance(cog.usage, Callable) and isinstance(cog.usage(), (str, Embed)):
-                usage = cog.usage()
         info = self._ModuleInfo(self.get_bot_prefix, name, author, usage, description, additional_credits, image_link)
         if name.lower() not in self.modules.keys():
             self.modules[name.lower()] = info

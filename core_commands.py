@@ -372,12 +372,14 @@ class CoreFunctionalityCog(commands.Cog):
             await ctx.send(response)
         elif module_name.lower() in self.bot.modules.keys():
             usage = self.bot.modules[module_name.lower()].usage
-            if isinstance(usage, str):
-                await ctx.send(usage if len(usage) < 1950 else f"{usage[:1949]}...")
-            elif isinstance(usage, Embed):
-                await ctx.send(embed=usage)
-            else:
+            if usage is None:
                 await ctx.send(f"The `{clean(ctx, module_name)}` module does not have its usage defined.")
+            else:
+                usage_content = usage()
+                if isinstance(usage_content, str):
+                    await ctx.send(usage_content if len(usage_content) < 1950 else f"{usage_content[:1949]}...")
+                elif isinstance(usage_content, Embed):
+                    await ctx.send(embed=usage_content)
         else:
             response = f"No information for `{clean(ctx, module_name)}` module was found."  # Prepare error message for missing entry.
             if module_name not in [mod.replace('modules.', '') for mod in self.bot.extensions.keys()]:
