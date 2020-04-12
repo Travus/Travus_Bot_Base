@@ -414,5 +414,3 @@ class CoreFunctionalityCog(commands.Cog):
                 else:  # If another error is encountered, log to console.
                     await ctx.send("The time could not be parsed correctly. Check the help command for shutdown for examples of times.")
                     print(f'[{tbb.cur_time()}] {ctx.message.author.id}: {str(e)}')
-
-# ToDo: Add usage command to README

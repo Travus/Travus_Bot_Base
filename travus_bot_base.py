@@ -374,6 +374,3 @@ def unembed_urls(text: str) -> str:
     pattern = compile(r"(\b|<)https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_+.~#?&\\/=]*)>?")
     text = pattern.sub(repl, text)
     return text
-
-
-# ToDo: Update existing code and README to reflect that functions moved into bot class.
