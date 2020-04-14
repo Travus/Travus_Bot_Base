@@ -407,6 +407,8 @@ class CoreFunctionalityCog(commands.Cog):
                 await ctx.send("Shutting down!")
                 await self.bot.db_con.close()
                 await self.bot.close()
+                while self.bot.loop.is_running():
+                    await asleep(1)
                 exit(0)
             except ValueError as e:  # If time parser encounters error, and error is exceeding of limit, report back.
                 if str(e) in ["Time too short.", "Time too long."]:
