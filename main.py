@@ -59,45 +59,45 @@ if __name__ == "__main__":
             information for that command, such as what the command does, aliases, what restrictions it has, and
             examples.""", "usage": "(COMMAND NAME)"})
 
-        async def _send_help_entry(self, command_object):
-            if command_object.qualified_name in bot.help.keys():
-                if command_object.enabled:
-                    embed = bot.help[command_object.qualified_name].make_help_embed(self.context)  # Send command help info if enabled.
+        async def _send_help_entry(self, com_object):
+            if com_object.qualified_name in bot.help.keys():
+                if com_object.enabled:
+                    embed = bot.help[com_object.qualified_name].make_help_embed(self.context)  # Send command help info.
                     await self.get_destination().send(embed=embed)
                 else:
-                    await self.get_destination().send(f"The `{command_object.qualified_name}` command is currently disabled.")  # Give feedback if disabled.
+                    await self.get_destination().send(f"The `{com_object.qualified_name}` command has been disabled.")
             else:
-                await self.get_destination().send("No help information is registered for this command.")  # Give feedback if no help info registered.
+                await self.get_destination().send("No help information is registered for this command.")
 
         async def _send_command_list(self, full_mapping):
             categories = {}  # List of categorized commands.
-            msg = ""  # Message to be sent.
             filtered_mapping = {f"`{com.qualified_name}`": com for com in await self.filter_commands(full_mapping)}
             non_passing = list(set(full_mapping).difference(set(filtered_mapping.values())))
             new_ctx = copy(self.context)
             new_ctx.guild = None
             non_passing = {f'`{com.qualified_name}`¹': com for com in non_passing if await tbb.can_run(com, new_ctx)}
             filtered_mapping.update(non_passing)
+            if len(filtered_mapping.items()) == 0:
+                await self.get_destination().send("No help information was found.")
+                return
             for com_text, com in filtered_mapping.items():
                 if com.qualified_name in bot.help.keys():
                     command_help = bot.help[com.qualified_name]  # Get command help info.
-                    category = command_help.category.lower() if command_help.category else "no category"  # Get command category.
+                    category = command_help.category.lower() if command_help.category else "no category"
                     if category not in categories.keys():  # Add category if it wasn't encountered before.
                         categories[category] = []
                     categories[category].append(com_text)  # Add command to category.
+            msg = f"__**Help Info {self.context.message.author.mention}:**__\n\n"
             for category in sorted(categories.keys()):
-                if len(msg) + len(f"**{category.title()}**\n{', '.join(sorted(categories[category]))}\n\n") > 1900:  # Send message if it's over 1900 characters long.
-                    msg += '1 = In DMs only.\n' if len(non_passing) else ""
-                    msg += f"Use `{bot.get_bot_prefix()}help <COMMAND>` for more info on individual commands."
-                    await self.get_destination().send(f"__**Help Info {self.context.message.author.mention}:**__\n\n{self.remove_mentions(msg)}")
-                    msg = "\n"  # Sets message to newline so that it doesn't trigger 'no info found' condition.
-                msg += f"**{category.title()}**\n{', '.join(sorted(categories[category]))}\n\n"
-            if msg == "":
-                msg = "No help information was found."
-            else:
-                msg += '1 = In DMs only.\n' if len(non_passing) else ""
-                msg += f"Use `{bot.get_bot_prefix()}help <COMMAND>` for more info on individual commands."  # Send message.
-            await self.get_destination().send(f"__**Help Info {self.context.message.author.mention}:**__\n\n{self.remove_mentions(msg)}")
+                category_text = f"**{category.title()}**\n{', '.join(sorted(categories[category]))}\n\n"
+                if len(category_text) > 1950:
+                    category_text = '\n'.join(tbb.split_long_messages(category_text))  # Break up too long categories.
+                msg += self.remove_mentions(category_text)
+            msg += '1 = In DMs only.\n' if len(non_passing) else ""
+            msg += f"Use `{bot.get_bot_prefix()}help <COMMAND>` for more info on individual commands."
+            msgs = tbb.split_long_messages(msg, 1950, "\n")  # Split the message along newlines if over 1950 long.
+            for msg_to_send in msgs:
+                await self.get_destination().send(msg_to_send)
 
         async def send_bot_help(self, mapping):
             """Function that triggers when help command is used without command."""

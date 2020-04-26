@@ -374,3 +374,24 @@ def unembed_urls(text: str) -> str:
     pattern = compile(r"(\b|<)https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_+.~#?&\\/=]*)>?")
     text = pattern.sub(repl, text)
     return text
+
+
+def split_long_messages(text: str, max_len: int = 1950, delimiter: str = " ") -> List[str]:
+    """Takes a text, max length and delimiter, and splits the text by the delimiter in such as way that no individual
+    parts are longer than the max length. The delimiter is not removed, and merely used to indicate splittable
+    points. Common delimiters are space or newline."""
+    text_blocks = [content + delimiter for content in text.split(delimiter)]  # Split and keep delimiter.
+    text_blocks.append(text_blocks.pop().rstrip(delimiter))  # Remove and re-add last element without delimiter.
+    messages = []
+    message = ""
+    for block in text_blocks:  # Concatenate text blocks while heeding max line length.
+        if len(block) + len(message) < max_len:
+            message += block
+        else:
+            messages.append(message)
+            message = block
+    if message:  # Add remaining text as last block.
+        messages.append(message)
+    if "" in messages:
+        messages.remove("")
+    return messages
