@@ -3,8 +3,10 @@ import datetime  # To get current time.
 from re import compile, findall  # Regex functions used in clean function for detecting mentions.
 from typing import Tuple, Dict, List, Union, Optional, Callable, Type  # For type-hinting.
 
-from discord import utils, Forbidden, Embed, Colour, Message, User, Member, TextChannel, VoiceChannel, CategoryChannel  # For embeds and deleting messages.
-from discord.ext.commands import Command, Cog, Bot, Context, Converter, UserConverter, BadArgument, TextChannelConverter, CommandError, UserInputError  # For type-hinting.
+from discord import utils, Forbidden, Embed, Colour, Message, User, Member, TextChannel, VoiceChannel, \
+                    CategoryChannel  # For embeds and deleting messages.
+from discord.ext.commands import Command, Cog, Bot, Context, Converter, UserConverter, BadArgument, \
+                                 TextChannelConverter, CommandError, UserInputError  # For type-hinting.
 
 import asqlite  # For asynchronous database transactions.
 from asqlite import Connection as A_Connection, connect as a_connect  # For type-hinting
@@ -51,7 +53,7 @@ class GlobalTextChannel(Converter):
             except BadArgument:  # Channel not in server.
                 try:
                     converted = ctx.bot.get_channel(int(text_channel))
-                    if converted is None or isinstance(converted, VoiceChannel) or isinstance(converted, CategoryChannel):
+                    if not converted or isinstance(converted, VoiceChannel) or isinstance(converted, CategoryChannel):
                         raise UserInputError(f'Could not identify text channel.')
                     return converted
                 except ValueError:
@@ -64,12 +66,13 @@ class TravusBotBase(Bot):
     class _HelpInfo:
         """Class that holds help info for commands."""
 
-        def __init__(self, get_prefix: Callable, command: Command, category: str = "no category", restrictions: Dict[str, Union[bool, List[str], str]] = None, examples: List[str] = None):
+        def __init__(self, get_prefix: Callable, command: Command, category: str = "no category",
+                     restrictions: Dict[str, Union[bool, List[str], str]] = None, examples: List[str] = None):
             """Initialization function loading all necessary information for HelpInfo class."""
             res = restrictions  # Shortening often used variable name.
             self.get_prefix = get_prefix
             self.name = command.qualified_name
-            self.description = command.help.replace("\n", " ") if command.help else "No description found."  # Remove newlines from multi-line docstrings.
+            self.description = command.help.replace("\n", " ") if command.help else "No description found."
             self.aliases = list(command.aliases) or []
             self.aliases.append(command.name)
             self.category = category
@@ -89,18 +92,22 @@ class TravusBotBase(Bot):
         def make_help_embed(self, ctx: Context) -> Embed:
             """Creates embeds for command based on info stored in class."""
             desc = f"Category: {self.category.title()}\n\n{self.description}"
-            embed = Embed(colour=Colour(0x4a4a4a), description=desc if len(desc) < 1950 else f"{desc[:1949]}...", timestamp=datetime.datetime.utcnow())
+            embed = Embed(colour=Colour(0x4a4a4a), description=desc if len(desc) < 1950 else f"{desc[:1949]}...",
+                          timestamp=datetime.datetime.utcnow())
             embed.set_author(name=f"{self.name.title()} Command")
             aliases = "\n".join(sorted(self.aliases))  # Make and add aliases blurb.
             embed.add_field(name="Aliases", value=f"```\n{aliases}```", inline=True)
             restrictions = "Bot Owner Only: Yes\n" if self.owner_only else ""  # Make and add restrictions blurb.
             restrictions += "DM Only: Yes\n" if self.dm_only else ""
             restrictions += "" if self.dm_only else "Server Only: Yes" if self.guild_only else "Server Only: No"
-            restrictions += ("\nPermissions:\n" + "\n".join(f"   {perm}" for perm in self.permissions)) if self.permissions else ""
-            restrictions += ("\nAny role of:\n" + "\n".join([f"   {role}" for role in self.roles])) if self.roles else ""
+            restrictions += (("\nPermissions:\n" + "\n".join(f"   {perm}" for perm in self.permissions))
+                             if self.permissions else "")
+            restrictions += (("\nAny role of:\n" + "\n".join([f"   {role}" for role in self.roles]))
+                             if self.roles else "")
             restrictions += f"\n{self.other_restrictions}" if self.other_restrictions else ""
             embed.add_field(name="Restrictions", value=f"```{restrictions}```", inline=True)
-            examples = "\n".join([f"`{self.get_prefix()}{self.name} {example}`" if example else f"`{self.get_prefix()}{self.name}`" for example in self.examples])  # Make and add examples.
+            examples = ("\n".join([f"`{self.get_prefix()}{self.name} {example}`"
+                                   if example else f"`{self.get_prefix()}{self.name}`" for example in self.examples]))
             embed.add_field(name="Examples", value=examples or "No examples found.", inline=False)
             embed.set_footer(text=ctx.message.author.display_name, icon_url=ctx.message.author.avatar_url)
             return embed
@@ -108,20 +115,24 @@ class TravusBotBase(Bot):
     class _ModuleInfo:
         """Class that holds info for modules."""
 
-        def __init__(self, get_prefix: Callable, name: str, author: str, usage: Callable[[], Union[str, Embed]] = None, description: str = None, extra_credits: str = None, image_link: str = None):
+        def __init__(self, get_prefix: Callable, name: str, author: str, usage: Callable[[], Union[str, Embed]] = None,
+                     description: str = None, extra_credits: str = None, image_link: str = None):
             """Initialization function loading all necessary information for ModuleInfo class."""
             self.get_prefix = get_prefix
             self.name = name
-            self.author = author.replace("\t", "\u200b\u0009\u200b\u0009\u200b\u0009\u200b\u0009\u200b\u0009")  # Convert tabs to non-skipped spaces.
-            self.description = description.replace("\n", " ") if description else "No module description found."  # Remove newline from multi-line strings.
-            self.credits = extra_credits.replace("\t", "\u200b\u0009\u200b\u0009\u200b\u0009\u200b\u0009\u200b\u0009") if extra_credits else None
+            # Convert tabs to non-skipped spaces.
+            self.author = author.replace("\t", "\u200b\u0009\u200b\u0009\u200b\u0009\u200b\u0009\u200b\u0009")
+            self.description = description.replace("\n", " ") if description else "No module description found."
+            self.credits = (extra_credits.replace("\t", "\u200b\u0009\u200b\u0009\u200b\u0009\u200b\u0009\u200b\u0009")
+                            if extra_credits else None)
             self.image = image_link
             self.usage = usage
 
         def make_about_embed(self, ctx: Context) -> Embed:
             """Creates embeds for module based on info stored in class."""
             desc = self.description.replace("_prefix_", self.get_prefix())
-            embed = Embed(colour=Colour(0x4a4a4a), description=desc if len(desc) < 1950 else f"{desc[:1949]}...", timestamp=datetime.datetime.utcnow())
+            embed = Embed(colour=Colour(0x4a4a4a), description=desc if len(desc) < 1950 else f"{desc[:1949]}...",
+                          timestamp=datetime.datetime.utcnow())
             embed.set_author(name=self.name)
             embed.set_footer(text=ctx.message.author.display_name, icon_url=ctx.message.author.avatar_url)
             if self.image:
@@ -157,7 +168,8 @@ class TravusBotBase(Bot):
         else:
             return f"@{self.user.display_name}#{self.user.discriminator} "
 
-    def add_module(self, name: str, author: str, usage: Callable[[], Union[str, Embed]] = None, description: str = None, additional_credits: str = None, image_link: str = None):
+    def add_module(self, name: str, author: str, usage: Callable[[], Union[str, Embed]] = None,
+                   description: str = None, additional_credits: str = None, image_link: str = None):
         """Function that is used to add module info to the bot correctly. Used to minimize developmental errors."""
         info = self._ModuleInfo(self.get_bot_prefix, name, author, usage, description, additional_credits, image_link)
         if name.lower() not in self.modules.keys():
@@ -184,7 +196,8 @@ class TravusBotBase(Bot):
         """Function that get command state (hidden, disabled) for every command currently loaded."""
         for command in self.commands:
             cog_com_name = f"{command.cog.__class__.__name__ + '.' if command.cog else ''}{command.name}"
-            command_state = await db_get_one(self.db_con, "SELECT state FROM command_states WHERE command = ?", (cog_com_name,))
+            command_state = await db_get_one(self.db_con, "SELECT state FROM command_states WHERE command = ?",
+                                             (cog_com_name,))
             if command_state is None:  # If a command has no stat registered, set it to visible and enables.
                 command_state = (0,)
                 await db_set(self.db_con, "INSERT INTO command_states VALUES (?, ?)", (cog_com_name, 0))
@@ -199,12 +212,15 @@ class TravusBotBase(Bot):
                 command.enabled = False
                 command.hidden = True
 
-    def add_command_help(self, command: Command, category: str = "no category", restrictions: Dict[str, Union[bool, List[str], str]] = None, examples: List[str] = None):
+    def add_command_help(self, command: Command, category: str = "no category",
+                         restrictions: Dict[str, Union[bool, List[str], str]] = None, examples: List[str] = None):
         """Function that is used to add help info to the bot correctly. Used to minimize developmental errors."""
-        self.help[command.qualified_name] = self._HelpInfo(self.get_bot_prefix, command, category, restrictions, examples)
+        self.help[command.qualified_name] = self._HelpInfo(self.get_bot_prefix, command, category, restrictions,
+                                                           examples)
 
     def remove_command_help(self, command: Union[Command, Type[Cog], str, List[Union[Command, str]]]):
-        """Function that is used to remove command help info from the bot correctly. Used to minimize developmental errors."""
+        """Function that is used to remove command help info from the bot correctly. Used to minimize developmental
+        errors."""
         if isinstance(command, list):  # Remove all in list, if list is passed.
             for com in command:
                 if com.qualified_name in self.help.keys():
@@ -219,8 +235,9 @@ class TravusBotBase(Bot):
 
 
 def parse_time(duration: str, minimum: int = None, maximum: int = None, error_on_exceeded: bool = True) -> int:
-    """Function that parses time in a NhNmNs format. Supports weeks, days, hours, minutes and seconds, positive and negative amounts and max values.
-    Minimum and maximum values can be set (in seconds), and whether a error should occur or the max / min value should be used when these are exceeded."""
+    """Function that parses time in a NhNmNs format. Supports weeks, days, hours, minutes and seconds, positive and
+    negative amounts and max values. Minimum and maximum values can be set (in seconds), and whether a error should
+    occur or the max / min value should be used when these are exceeded."""
     last, t_total = 0, 0
     t_frames = {"w": 604800, "d": 86400, "h": 3600, "m": 60, "s": 1}
     for c in range(len(duration)):  # For every character in time string.
@@ -228,7 +245,7 @@ def parse_time(duration: str, minimum: int = None, maximum: int = None, error_on
             if duration[last:c] != "":
                 t_total += int(duration[last:c]) * t_frames[duration[c].lower()]
             last = c + 1
-        elif duration[c] not in ["+", "-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]:  # If character isn't a time frame denomination or valid number.
+        elif duration[c] not in ["+", "-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]:  # Valid characters.
             raise ValueError("Invalid character encountered during time parsing.")
     if t_total < minimum:  # If total time is less than minimum.
         if error_on_exceeded:
@@ -248,7 +265,9 @@ async def send_in_global_channel(ctx: Context, channel: GlobalTextChannel, msg: 
     try:
         if isinstance(channel, (User, Member)) and channel.id != ctx.author.id and not other_dms:
             await ctx.send("Sending messages to another user's DMs is forbidden.")
-        elif channel is None or isinstance(channel, (User, Member)) or channel.permissions_for(ctx.author).send_messages:
+        elif isinstance(channel, (User, Member)) and (channel.id == ctx.author.id or other_dms):
+            await channel.send(msg)
+        elif isinstance(channel, TextChannel) and channel.permissions_for(ctx.author).send_messages or channel is None:
             await (channel or ctx.channel).send(msg)
         else:
             await ctx.send("You do not have permission to send messages in this channel.")
@@ -286,7 +305,8 @@ async def db_set(connection: A_Connection, query: str, variables: tuple) -> Unio
     return None
 
 
-async def db_set_many(connection: A_Connection, queries: Tuple[str, ...], variables: Tuple[tuple, ...]) -> Union[asqlite.sqlite3.IntegrityError, None]:
+async def db_set_many(connection: A_Connection, queries: Tuple[str, ...],
+                      variables: Tuple[tuple, ...]) -> Union[asqlite.sqlite3.IntegrityError, None]:
     """Executes multiple database commands without fetching anything."""
     if len(queries) < len(variables):
         raise RuntimeError("More variables than queries found.")
@@ -337,8 +357,10 @@ def clean(ctx: Context, text: str, escape_markdown: bool = True) -> str:
         m = ctx.bot.get_user(_id)
         return '@' + m.name if m else '@deleted-user'
 
-    transformations.update(('<@%s>' % member_id, resolve_member(member_id)) for member_id in [int(x) for x in findall(r'<@!?([0-9]+)>', text)])
-    transformations.update(('<@!%s>' % member_id, resolve_member(member_id)) for member_id in [int(x) for x in findall(r'<@!?([0-9]+)>', text)])
+    transformations.update(('<@%s>' % member_id, resolve_member(member_id)) for member_id
+                           in [int(x)for x in findall(r'<@!?([0-9]+)>', text)])
+    transformations.update(('<@!%s>' % member_id, resolve_member(member_id)) for member_id
+                           in [int(x) for x in findall(r'<@!?([0-9]+)>', text)])
 
     if ctx.guild:
         def resolve_channel(_id):
@@ -352,7 +374,8 @@ def clean(ctx: Context, text: str, escape_markdown: bool = True) -> str:
             return '@' + r.name if r else '@deleted-role'
 
         transformations.update(resolve_channel(channel) for channel in [int(x) for x in findall(r'<#([0-9]+)>', text)])
-        transformations.update(('<@&%s>' % role_id, resolve_role(role_id)) for role_id in [int(x) for x in findall(r'<@&([0-9]+)>', text)])
+        transformations.update(('<@&%s>' % role_id, resolve_role(role_id))
+                               for role_id in [int(x) for x in findall(r'<@&([0-9]+)>', text)])
 
     def repl(obj):
         """Function used in regex substitution."""
@@ -371,8 +394,8 @@ def unembed_urls(text: str) -> str:
         """Function used in regex substitution."""
         return f"<{obj.group(0).strip('<').strip('>')}>"
 
-    pattern = compile(r"(\b|<)https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_+.~#?&\\/=]*)>?")
-    text = pattern.sub(repl, text)
+    ptrn = compile(r"(\b|<)https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_+.~#?&\\/=]*)>?")
+    text = ptrn.sub(repl, text)
     return text
 
 
