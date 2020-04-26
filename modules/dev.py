@@ -16,14 +16,18 @@ import travus_bot_base as tbb  # TBB functions and classes.
 def setup(bot: tbb.TravusBotBase):
     """Setup function ran when module is loaded."""
     bot.add_cog(DevCog(bot))  # Add cog and command help info.
-    bot.add_module("Dev", "[Travus](https://github.com/Travus):\n\tEval command\n\tRoleID command\n\tChannelID command\n\tLast error command\n\n[Rapptz](https://github.com/Rapptz):\n\tSudo command",
-                   DevCog.usage, """This module includes developer functionality that supply information useful for programming, such as IDs, as well as
-                   some debug and testing options such as code execution and remote command execution. Also allows checking the most recent error.""",
-                   "[Rapptz](https://github.com/Rapptz):\n\tEval example\n\n[nerdstep710](https://github.com/nerdstep710):\n\tMystbin example")
+    bot.add_module("Dev", "[Travus](https://github.com/Travus):\n\tEval command\n\tRoleID command\n\tChannelID command"
+                          "\n\tLast error command\n\n[Rapptz](https://github.com/Rapptz):\n\tSudo command",
+                   DevCog.usage, """This module includes developer functionality that supply information useful for
+                   programming, such as IDs, as well as some debug and testing options such as code execution and
+                   remote command execution. Also allows checking the most recent error.""",
+                   "[Rapptz](https://github.com/Rapptz):\n\tEval example\n\n"
+                   "[nerdstep710](https://github.com/nerdstep710):\n\tMystbin example")
     bot.add_command_help(DevCog.eval, "Dev", None, ["return 4 + 7", "return channel.id"])
     bot.add_command_help(DevCog.sudo, "Dev", None, ["travus bot_room help", "118954681241174016 about dev"])
     bot.add_command_help(DevCog.roleids, "Dev", {"perms": ["Manage Roles"]}, ["all bot_room", "all dm", "muted"])
-    bot.add_command_help(DevCog.channelids, "Dev", {"perms": ["Manage Channels"]}, ["all bot_room", "all dm", "general"])
+    bot.add_command_help(DevCog.channelids, "Dev", {"perms": ["Manage Channels"]},
+                         ["all bot_room", "all dm", "general"])
     bot.add_command_help(DevCog.lasterror, "Dev", {"perms": ["Manage Server"]}, [""])
 
 
@@ -65,8 +69,9 @@ class DevCog(commands.Cog):
     async def _mystbin_send(self, ctx: commands.Context, text: str):
         """Send the text if it's short enough, otherwise links to a Mystbin of the text."""
         if text is not None:
-            token = (await tbb.db_get_one(self.bot.db_con, "SELECT value FROM settings WHERE flag = ?", ("discord_token",)))[0]
-            text = text.replace(token, "<TOKEN REDACTED>") if isinstance(text, str) else text  # Remove the token from the output.
+            token = (await tbb.db_get_one(self.bot.db_con, "SELECT value FROM settings WHERE flag = ?",
+                                          ("discord_token",)))[0]
+            text = text.replace(token, "<TOKEN REDACTED>") if isinstance(text, str) else text  # Remove the token.
             if len(text) > 1950:
                 lines = text.split("\n")
                 for n in range(len(lines)):
@@ -86,26 +91,26 @@ class DevCog(commands.Cog):
     @staticmethod
     def usage() -> str:
         """Returns the usage text."""
-        return f"**How To Use The Dev Module:**\nThis module is used for development purposes, such as retrieving " \
-               f"channel and role IDs, running commands on behalf of other users, and running code. The commands " \
-               f"in this module are a bit more advanced than most others, this command will elaborate more on how to " \
-               f"use them. For more info on what the commands do, check their help entry.\n\n*Sudo Command*\nThis " \
-               f"command takes up to 3 arguments. The first is a user. The second argument is a channel, but " \
-               f"this can be omitted. The bot will try to resolve the channel, if this fails it will fall back to the " \
-               f"channel the command was used in, then it will consider the second argument to be the third, namely " \
-               f"the command to be executed. This means in practice that unless the command starts with something that " \
-               f"would resolve as a channel the second argument can be omitted if the current channel is the target " \
-               f"channel.\n\n*Eval Command*\nThis command runs code. Code can be either be passed directly following " \
-               f"the command, or in a single or multi-line code block. Multi-line code blocks both with and without " \
-               f"syntax highlighting are supported, however the start and end of the code block (i.e. \\`\\`\\`) has " \
-               f"to be on separate lines from the code. The bot will respond with all regular output streams and the " \
-               f"return value if there is one. If there is no output, the bot will not respond.\n\n*Roleids/Channelids " \
-               f"Commands*\nThese commands both work similarly. The first argument should either be the keyword `all` " \
-               f"or alternatively the reference to either a channel or role based on which command is used. Then " \
-               f"optionally a channel can be given as a second argument, and the response will be sent in this channel. " \
-               f"The channel can be in another server entirely as long as both the user and the bot have access there. " \
-               f"If the keyword `dm` is used then the response will be sent in the user's DMs with the bot. Lastly, " \
-               f"if the argument is omitted then the response is sent in the current channel."
+        return (f"**How To Use The Dev Module:**\nThis module is used for development purposes, such as retrieving "
+                f"channel and role IDs, running commands on behalf of other users, and running code. The commands in "
+                f"this module are a bit more advanced than most others, this command will elaborate more on how to use "
+                f"them. For more info on what the commands do, check their help entry.\n\n*Sudo Command*\nThis command "
+                f"takes up to 3 arguments. The first is a user. The second argument is a channel, but this can be "
+                f"omitted. The bot will try to resolve the channel, if this fails it will fall back to the channel the "
+                f"command was used in, then it will consider the second argument to be the third, namely the command "
+                f"to be executed. This means in practice that unless the command starts with something that would "
+                f"resolve as a channel the second argument can be omitted if the current channel is the target channel."
+                f"\n\n*Eval Command*\nThis command runs code. Code can be either be passed directly following the "
+                f"command, or in a single or multi-line code block. Multi-line code blocks both with and without "
+                f"syntax highlighting are supported, however the start and end of the code block (i.e. \\`\\`\\`) has "
+                f"to be on separate lines from the code. The bot will respond with all regular output streams and the "
+                f"return value if there is one. If there is no output, the bot will not respond.\n\n*Roleids/"
+                f"Channelids Commands*\nThese commands both work similarly. The first argument should either be the "
+                f"keyword `all` or alternatively the reference to either a channel or role based on which command is "
+                f"used. Then optionally a channel can be given as a second argument, and the response will be sent in "
+                f"this channel. The channel can be in another server entirely as long as both the user and the bot "
+                f"have access there. If the keyword `dm` is used then the response will be sent in the user's DMs with "
+                f"the bot. Lastly, if the argument is omitted then the response is sent in the current channel.")
 
     @staticmethod
     def cleanup_code(content: str) -> str:
@@ -150,7 +155,7 @@ class DevCog(commands.Cog):
     @commands.is_owner()
     @commands.guild_only()
     @commands.command(name="sudo", usage="<USER> (CHANNEL) <COMMAND>")
-    async def sudo(self, ctx: commands.Context, user: Member, channel: Optional[tbb.GlobalTextChannel], *, command: str):
+    async def sudo(self, ctx: commands.Context, user: Member, channel: Optional[tbb.GlobalTextChannel], *, cmd: str):
         """This command lets you run commands as another user, optionally in other channels. If the channel argument is
         skipped and the bot fails to parse the argument as a channel it will ignore the channel argument and move on to
         parsing the command instead. In this case the command will be sent from the channel you are currently in."""
@@ -163,14 +168,15 @@ class DevCog(commands.Cog):
         if new_ctx.author is None:
             await ctx.send("Target user is not in target server.")
             return
-        new_ctx.content = ctx.prefix + command
+        new_ctx.content = ctx.prefix + cmd
         new_ctx = await self.bot.get_context(new_ctx, cls=type(ctx))
         await self.bot.invoke(new_ctx)
 
     @commands.guild_only()
     @commands.has_permissions(manage_roles=True)
     @commands.command(name="roleids", aliases=["roleid"], usage="<ROLE/all> (OUTPUT CHANNEL/dm)")
-    async def roleids(self, ctx: commands.Context, role: Union[Role, str], resp_channel: Optional[tbb.GlobalTextChannel]):
+    async def roleids(self, ctx: commands.Context, role: Union[Role, str],
+                      resp_channel: Optional[tbb.GlobalTextChannel]):
         """This command gives you role IDs of one or all roles in the server depending on if a role or `all` is passed
         along. You can also pass along a channel, in this server or otherwise, in which case the response is sent in
         that channel. Sending `dm` instead of a channel will send you the result in direct messages."""
@@ -185,7 +191,8 @@ class DevCog(commands.Cog):
     @commands.guild_only()
     @commands.has_permissions(manage_channels=True)
     @commands.command(name="channelids", aliases=["channelid"], usage="<CHANNEL/all> (OUTPUT CHANNEL/dm)")
-    async def channelids(self, ctx: commands.Context, channel: Union[tbb.GlobalChannel, str], resp_channel: Optional[tbb.GlobalTextChannel]):
+    async def channelids(self, ctx: commands.Context, channel: Union[tbb.GlobalChannel, str],
+                         resp_channel: Optional[tbb.GlobalTextChannel]):
         """This command gives you channel IDs of one or all channels in the server depending on if a channel or `all`
         is passed along. You can also pass along a second channel, in this server or otherwise, in which case the
         response is sent in that channel. Sending `dm` instead of a second channel will send you the result in direct

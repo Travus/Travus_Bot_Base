@@ -19,7 +19,8 @@ if __name__ == "__main__":
             print("Invalid token length.")
     clr()
     print("Please enter a description of the bot for the about command. (Optional)")
-    print("This needs to be under 2000 characters, does not support indent and newlines.\nType _prefix_ for the bot prefix:\n")
+    print("This needs to be under 2000 characters, does not support indent and newlines.")
+    print("Type _prefix_ for the bot prefix:\n")
     bot_description = input()  # Ask for bot description.
     clr()
     print("Please enter additional credits for the about command. (Optional)")
