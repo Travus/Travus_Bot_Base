@@ -2,4 +2,4 @@ venv/
 .idea/
 __pycache__/
 database.sqlite
-extra/*
+config.yml

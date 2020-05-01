@@ -1,1 +1,4 @@
-discord.py>=1.2.3
+discord.py
+pyyaml
+requests
+asyncpg
