@@ -1,0 +1,27 @@
+version: '3'
+
+services:
+  bot:
+    build: "."
+    depends_on:
+      - postgres
+    volumes:
+      - modules:/usr/src/app/modules
+      - ./database.sqlite:/usr/src/app/database.sqlite
+
+  postgres:
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRESS_USER: postgres
+      POSTGRES_DB: discord_bot
+    volumes:
+      - database:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  modules:
+    external: false
+  database:
+    external: false
