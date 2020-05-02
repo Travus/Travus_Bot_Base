@@ -1,4 +1,3 @@
-import asyncio  # To make async db connection in custom bot __init__.
 import datetime  # To get current time.
 from re import compile, findall  # Regex functions used in clean function for detecting mentions.
 from typing import Tuple, Dict, List, Union, Optional, Callable, Type  # For type-hinting.
@@ -8,8 +7,7 @@ from discord import utils, Forbidden, Embed, Colour, Message, User, Member, Text
 from discord.ext.commands import Command, Cog, Bot, Context, Converter, UserConverter, BadArgument, \
                                  TextChannelConverter, CommandError, UserInputError  # For type-hinting.
 
-import asqlite  # For asynchronous database transactions.
-from asqlite import Connection as A_Connection, connect as a_connect  # For type-hinting
+import asyncpg
 
 
 class GlobalChannel(Converter):
@@ -144,12 +142,9 @@ class TravusBotBase(Bot):
                 embed.add_field(name="Additional Credits", value=f"{self.credits}", inline=True)
             return embed
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, db: Optional[asyncpg.pool.Pool], *args, **kwargs):
         """Initialization function loading all necessary information for TravusBotBase class."""
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        self.db_con: A_Connection = loop.run_until_complete(a_connect("database.sqlite"))
-        loop.run_until_complete(db_set(self.db_con, "PRAGMA foreign_keys = 1", ()))
+        self.db: Optional[asyncpg.pool.Pool] = db
         self.last_module_error: Optional[str] = None
         self.last_error: Optional[str] = None
         self.extension_ctx: Optional[Context] = None
@@ -194,23 +189,24 @@ class TravusBotBase(Bot):
 
     async def update_command_states(self):
         """Function that get command state (hidden, disabled) for every command currently loaded."""
-        for command in self.commands:
-            cog_com_name = f"{command.cog.__class__.__name__ + '.' if command.cog else ''}{command.name}"
-            command_state = await db_get_one(self.db_con, "SELECT state FROM command_states WHERE command = ?",
-                                             (cog_com_name,))
-            if command_state is None:  # If a command has no stat registered, set it to visible and enables.
-                command_state = (0,)
-                await db_set(self.db_con, "INSERT INTO command_states VALUES (?, ?)", (cog_com_name, 0))
-            command_state = int(command_state[0])
-            if command_state == 1:  # Set command to be hidden.
-                command.enabled = True
-                command.hidden = True
-            elif command_state == 2:  # Set command to be disabled.
-                command.enabled = False
-                command.hidden = False
-            elif command_state == 3:  # Set command to be hidden and disabled.
-                command.enabled = False
-                command.hidden = True
+        async with self.db.acquire() as conn:
+            async with conn.transaction():
+                for command in self.commands:
+                    cog_com_name = f"{command.cog.__class__.__name__ + '.' if command.cog else ''}{command.name}"
+                    command_state = await conn.fetchval("SELECT state FROM command_states WHERE command = $1;",
+                                                        cog_com_name)
+                    if command_state is None:  # If a command has no state registered, set it to visible and enables.
+                        command_state = (0,)
+                        await conn.execute("INSERT INTO command_states VALUES ($1, $2)", cog_com_name, 0)
+                    if command_state == 1:  # Set command to be hidden.
+                        command.enabled = True
+                        command.hidden = True
+                    elif command_state == 2:  # Set command to be disabled.
+                        command.enabled = False
+                        command.hidden = False
+                    elif command_state == 3:  # Set command to be hidden and disabled.
+                        command.enabled = False
+                        command.hidden = True
 
     def add_command_help(self, command: Command, category: str = "no category",
                          restrictions: Dict[str, Union[bool, List[str], str]] = None, examples: List[str] = None):
@@ -275,38 +271,35 @@ async def send_in_global_channel(ctx: Context, channel: GlobalTextChannel, msg: 
         await ctx.send("Cannot send messages in given channel.")
 
 
-async def db_get_one(connection: A_Connection, query: str, variable: tuple) -> Union[tuple, None]:
+async def db_get_one(connection: asyncpg.pool.Pool, query: str, variable: tuple) -> Union[tuple, None]:
     """Returns the result of a database query and fetch_one."""
-    db = await connection.cursor()
-    await db.execute(query, variable)
-    result = await db.fetchone()
+    db = connection
+    result = await db.fetchrow(query, variable)
     result = tuple(result) if result is not None else None
     await db.close()
     return result
 
 
-async def db_get_all(connection: A_Connection, query: str, variables: tuple) -> Union[List[tuple], None]:
+async def db_get_all(connection: asyncpg.pool.Pool, query: str, variables: tuple) -> Union[List[tuple], None]:
     """Returns the result of a database query and fetch_all."""
-    db = await connection.cursor()  # Fetch results from database.
-    await db.execute(query, variables)
-    result = await db.fetchall()
+    db = connection
+    result = await db.fetch(query, variables)
     result = [tuple(val) for val in result] if result is not None else None
     await db.close()
     return result
 
 
-async def db_set(connection: A_Connection, query: str, variables: tuple) -> Union[asqlite.sqlite3.IntegrityError, None]:
+async def db_set(connection: asyncpg.pool.Pool, query: str, variables: tuple) -> Union[Exception, None]:
     """Executes a database command without fetching anything."""
     try:  # Try executing database query.
         await connection.execute(query, variables)
-    except asqlite.sqlite3.IntegrityError as e:  # If we hit a database constraint, return error.
+    except Exception as e:  # If we hit a database constraint, return error.
         return e
-    await connection.commit()  # Commit changes and return None as no error was encountered.
     return None
 
 
-async def db_set_many(connection: A_Connection, queries: Tuple[str, ...],
-                      variables: Tuple[tuple, ...]) -> Union[asqlite.sqlite3.IntegrityError, None]:
+async def db_set_many(connection: asyncpg.pool.Pool, queries: Tuple[str, ...],
+                      variables: Tuple[tuple, ...]) -> Union[Exception, None]:
     """Executes multiple database commands without fetching anything."""
     if len(queries) < len(variables):
         raise RuntimeError("More variables than queries found.")
@@ -318,9 +311,8 @@ async def db_set_many(connection: A_Connection, queries: Tuple[str, ...],
     try:  # Try executing database queries.
         for query, variable in zip(queries, variables):
             await connection.execute(query, variable)
-    except asqlite.sqlite3.IntegrityError as e:  # If we hit a database constraint, return error.
+    except Exception as e:  # If we hit a database constraint, return error.
         return e
-    await connection.commit()  # Commit changes and return None as no error was encountered.
     return None
 
 

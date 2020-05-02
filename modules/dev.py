@@ -66,12 +66,10 @@ class DevCog(commands.Cog):
         self.bot = bot
         self._last_result = None
 
-    async def _mystbin_send(self, ctx: commands.Context, text: str):
+    @staticmethod
+    async def _mystbin_send(ctx: commands.Context, text: str):
         """Send the text if it's short enough, otherwise links to a Mystbin of the text."""
         if text is not None:
-            token = (await tbb.db_get_one(self.bot.db_con, "SELECT value FROM settings WHERE flag = ?",
-                                          ("discord_token",)))[0]
-            text = text.replace(token, "<TOKEN REDACTED>") if isinstance(text, str) else text  # Remove the token.
             if len(text) > 1950:
                 lines = text.split("\n")
                 for n in range(len(lines)):

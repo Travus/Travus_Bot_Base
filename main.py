@@ -1,53 +1,77 @@
 import os  # To check directory contents and make directories.
-import sqlite3  # To access database.
 from copy import copy  # To copy context in help command.
 
 import discord  # To various Discord classes.
 from aiohttp import ClientConnectorError as CCError  # To detect connection errors.
 from discord.ext import commands  # For command functionality.
+import yaml
+import asyncpg
+from asyncio import sleep as asleep, get_event_loop
 
 import travus_bot_base as tbb  # TBB functions and classes.
 
 
-def setup_bot(bot_object: tbb.TravusBotBase):
-    """Sets command prefix and returns Discord token from the database."""
+async def run():  # ToDo: Make existing DB stuff use new Database. Clean up.
+    """Connect to database, does first-time setup and starts bot."""
     if "modules" not in os.listdir("."):  # Makes sure modules directory exists.
         os.mkdir("modules")
-    db_con = sqlite3.connect("database.sqlite")  # Connect to database.
-    db = db_con.cursor()
-    db.execute("CREATE TABLE IF NOT EXISTS settings(flag TEXT PRIMARY KEY NOT NULL, value TEXT)")  # Create tables.
-    db.execute("CREATE TABLE IF NOT EXISTS default_modules(module TEXT PRIMARY KEY NOT NULL)")
-    db.execute("CREATE TABLE IF NOT EXISTS command_states(command TEXT PRIMARY KEY NOT NULL, state NUMERIC NOT NULL)")
-    db_con.commit()
-    db.execute("SELECT value FROM settings WHERE flag = ?", ("discord_token", ))  # Get bot token.
-    discord_token = db.fetchone()
-    db.execute("SELECT value FROM settings WHERE flag = ?", ("prefix", ))  # Get prefix.
-    loaded_prefix = db.fetchone()
-    if loaded_prefix is None:
-        db.execute("INSERT INTO settings VALUES ('prefix', '!')")  # Commit default prefix if none is set.
-        db_con.commit()
-        loaded_prefix = ("!", )  # Use default prefix if none is set.
-    db.close()
-    db_con.close()
+
+    retries = 5
+    db = None
+    with open("config.yml", "r") as config:
+        conf = yaml.safe_load(config)
+    while retries:
+        try:
+            db = await asyncpg.create_pool(user=conf["pg_user"], password=conf["pg_password"],
+                                           host=conf["pg_address"], port=conf["pg_port"], database=conf["pg_database"])
+            break
+        except Exception as e:
+            print(f"{type(e)} - {e}")
+            retries -= 1
+            await asleep(5)
+    if not retries:
+        print("Failed to connect to database.")
+        exit(1)
+
+    discord_token = conf["discord_token"] if "discord_token" in conf.keys() else None  # Get bot token.
     if discord_token is None:  # Stop if no Discord token was found.
         print("Error: Discord bot token missing. Please run the setup file to set up the bot.")
         exit(1)
-    if loaded_prefix[0] == "":  # If prefix was 'removed' set it to None type.
-        loaded_prefix = (None, )
-    bot_object.prefix = loaded_prefix[0]
-    return discord_token[0].strip()  # Return Discord token.
+
+    async with db.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute("CREATE TABLE IF NOT EXISTS settings(key VARCHAR PRIMARY KEY NOT NULL, value VARCHAR)")
+            await conn.execute("CREATE TABLE IF NOT EXISTS default_modules(module VARCHAR PRIMARY KEY NOT NULL)")
+            await conn.execute("CREATE TABLE IF NOT EXISTS command_states(command VARCHAR PRIMARY KEY NOT NULL, "
+                               "state INTEGER NOT NULL)")
+        loaded_prefix = await db.fetchval("SELECT value FROM settings WHERE key = $1", "prefix")
+        if loaded_prefix is None:
+            await conn.execute("INSERT INTO settings VALUES ('prefix', '!')")
+            loaded_prefix = "!"  # Use default prefix if none is set.
+    if loaded_prefix == "":  # If prefix was 'removed' set it to None type.
+        loaded_prefix = None
+
+    bot = tbb.TravusBotBase(db=db, command_prefix=get_prefix)
+    register_help_and_events(bot)
+    bot.prefix = loaded_prefix
+    try:
+        await bot.start(discord_token)
+    except KeyboardInterrupt:
+        await bot.logout()
+        await db.close()
 
 
 async def get_prefix(bot_object, message):
     """This function is used by the bot to work with pings, and optionally a prefix."""
-    if bot.prefix is not None:
+    if bot_object.prefix is not None:
         return commands.when_mentioned_or(bot_object.prefix)(bot_object, message)  # There is a prefix set.
     else:
         return commands.when_mentioned(bot_object, message)  # There is no prefix set.
 
 
-if __name__ == "__main__":
-    bot = tbb.TravusBotBase(command_prefix=get_prefix)  # Define bot object.
+def register_help_and_events(bot: tbb.TravusBotBase):
+    """This function makes and adds the custom help command to the bot. It requires the bot object to work. Also
+    adds the different events, such as on_ready, on_disconnect, etc."""
 
     class CustomHelp(commands.HelpCommand):
         """Class for custom help command."""
@@ -137,20 +161,21 @@ if __name__ == "__main__":
     async def on_ready():
         """Loads additional flags and help info, loads default modules and sets bot presence."""
         if not bot.has_started:  # If first time setup has not been completed.
-            delete_msgs = await tbb.db_get_one(bot.db_con, "SELECT value FROM settings WHERE flag = ?",
-                                               ("delete_messages",))
-            if delete_msgs is None:  # If no delete message flag is in database, set it to off in runtime and database.
-                await tbb.db_set(bot.db_con, "INSERT INTO settings VALUES (?, ?)", ("delete_messages", "0"))
-                delete_msgs = (0, )
-            bot.delete_messages = int(delete_msgs[0])  # Set delete messages flag.
-            bot_author = ("[Travus](https://github.com/Travus):\n\tTravus Bot Base\n\tCore functions\n\n"
-                          "[Rapptz](https://github.com/Rapptz):\n\tDiscord.py\n\tasqlite")
-            bot_description = await tbb.db_get_one(bot.db_con, "SELECT value FROM settings WHERE flag = ?",
-                                                   ("bot_description",))
-            bot_description = (bot_description or ("No description for the bot was found. "
-                                                   "A description can be set using the setup file.", ))[0]
-            bot_additional_credits = await tbb.db_get_one(bot.db_con, "SELECT value FROM settings WHERE flag = ?",
-                                                          ("bot_additional_credits",))
+            async with bot.db.acquire() as conn:
+                async with conn.transaction():
+                    delete_msgs = await conn.fetchval("SELECT value FROM settings WHERE key = 'delete_messages'")
+                    if delete_msgs is None:  # If no delete message flag is in database, set it to off.
+                        await conn.execute("INSERT INTO settings VALUES ('delete_messages', '0')")
+                        delete_msgs = 0
+                    bot.delete_messages = int(delete_msgs)  # Set delete messages flag.
+                    bot_author = ("[Travus](https://github.com/Travus):\n\tTravus Bot Base\n\tCore functions\n\n"
+                                  "[Rapptz](https://github.com/Rapptz):\n\tDiscord.py\n\tasqlite")
+                    bot_description = await conn.fetchval("SELECT value FROM settings WHERE key = 'bot_description'")
+                    bot_description = (bot_description or ("No description for the bot was found. "
+                                                           "A description can be set using the setup file."))
+                    bot_additional_credits = await conn.fetchval("SELECT value FROM settings "
+                                                                 "WHERE key = 'bot_additional_credits'")
+                    default_modules = await conn.fetch("SELECT module FROM default_modules")
             if bot_additional_credits:
                 bot_additional_credits = (bot_additional_credits[0].replace("\\n", "\n")
                                                                    .replace("\\r", "\n")
@@ -165,18 +190,15 @@ if __name__ == "__main__":
                 else:
                     raise FileNotFoundError("Core commands file not found.")
             except FileNotFoundError:  # If core_commands.py file is not found, error to console and shut down.
-                await bot.db_con.close()
                 print(f"[{tbb.cur_time()}] Core commands file not found.")
                 exit(4)
             except Exception as e:  # If error is encountered in core_commands.py error to console and shut down.
-                await bot.db_con.close()
                 if isinstance(e, commands.ExtensionNotFound):  # If import error, clarify error further.
                     e = e.__cause__
                 print(f"[{tbb.cur_time()}] Core functionality file failed to load.\n\nError:\n{e}")
                 exit(3)
-            default_modules = await tbb.db_get_all(bot.db_con, "SELECT module FROM default_modules", ())
             if default_modules:  # If default modules were found, get their names from the response.
-                default_modules = [mod[0] for mod in default_modules]
+                default_modules = [mod["module"] for mod in default_modules]
             for mod in default_modules:  # Save module and help info before loading in case we need to roll back.
                 old_help = dict(bot.help)
                 old_modules = dict(bot.modules)
@@ -199,9 +221,8 @@ if __name__ == "__main__":
                     print(f"Default module '{mod}' loaded.")
             await bot.update_command_states()  # Make sure commands are in the right state. (hidden, disabled)
             bot.has_started = True  # Flag that the first time setup has been completed.
-        loaded_prefix = await tbb.db_get_one(bot.db_con, "SELECT value FROM settings WHERE flag = ?", ("prefix",))
         activity = discord.Activity(type=discord.ActivityType.listening,
-                                    name=f"prefix: {loaded_prefix[0]}" if loaded_prefix[0] else "pings only")
+                                    name=f"prefix: {bot.prefix}" if bot.prefix else "pings only")
         await bot.change_presence(activity=activity)  # Display status message.
         bot.is_connected = 1  # Flag that the bot is currently connected to Discord.
         print(f"{bot.user.name} is ready!\n------------------------------")
@@ -255,8 +276,10 @@ if __name__ == "__main__":
         bot.last_error = f'[{tbb.cur_time()}] {ctx.message.author.id}: {error}'
 
     bot.help_command = CustomHelp()  # Set bot to use custom help command.
-    try:  # Run the bot.
-        bot.run(setup_bot(bot))
-    except discord.LoginFailure:  # Exit if running the bot failed. Token probably wrong.
-        print(f"[{tbb.cur_time()}] Error: Login failure, bot token is likely wrong or Discord is down!")
-        exit(2)
+
+
+try:  # Run the bot.
+    get_event_loop().run_until_complete(run())
+except discord.LoginFailure:  # Exit if running the bot failed. Token probably wrong.
+    print(f"[{tbb.cur_time()}] Error: Login failure, bot token is likely wrong or Discord is down!")
+    exit(2)

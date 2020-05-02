@@ -105,11 +105,12 @@ class CoreFunctionalityCog(commands.Cog):
         the prefix to `remove` will remove the prefix. The bot will always listen to pings as if they were a prefix,
         regardless of if there is another prefix set or not."""
         self.bot.prefix = new_prefix if new_prefix.lower() != "remove" else None  # If 'remove', prefix is set to None.
-        await tbb.db_set(self.bot.db_con, "UPDATE settings SET value = ? WHERE flag = 'prefix'",
-                         (new_prefix if new_prefix.lower() != "remove" else "",))  # Entry is empty if no prefix.
         activity = Activity(type=ActivityType.listening,
                             name=f"prefix: {new_prefix}" if new_prefix.lower() != "remove" else "pings only")
         await self.bot.change_presence(activity=activity)  # Set status.
+        async with self.bot.db.acquire() as conn:
+            await conn.execute("UPDATE settings SET value = $1 WHERE key = 'prefix'",
+                               new_prefix if new_prefix.lower() != "remove" else "")  # Empty string is no prefix.
         if new_prefix.lower() != "remove":  # Give feedback to user.
             await ctx.send(f"The bot prefix has successfully been changed to `{new_prefix}`.")
         else:
@@ -194,8 +195,9 @@ class CoreFunctionalityCog(commands.Cog):
         """This command lists all current default modules. For more information on modules see the help text for the
         `module` command. All modules in this list start as soon as the bot is launched. For a list of all available or
         loaded modules see the `module list` command."""
-        result = await tbb.db_get_all(self.bot.db_con, "SELECT module FROM default_modules", ())
-        result = [f"`{clean(ctx, val[0])}`" for val in result] if len(result) > 0 else None
+        async with self.bot.db.acquire() as conn:
+            result = await conn.fetch("SELECT module FROM default_modules")
+        result = [f"`{clean(ctx, val['module'])}`" for val in result] if len(result) > 0 else None
         await ctx.send(f"Default modules: {'None' if result is None else ', '.join(result)}")
 
     @commands.is_owner()
@@ -206,7 +208,8 @@ class CoreFunctionalityCog(commands.Cog):
         the next time. For that, see the `module load` command. For a list of existing default modules, see the
         `default list` command. For more info on modules see the help text for the `module` command."""
         if f"{mod}.py" in listdir("modules"):  # Check if such a module even exists.
-            response = await tbb.db_set(self.bot.db_con, "INSERT INTO default_modules VALUES (?)", (mod,))
+            async with self.bot.db.acquire() as conn:
+                response = await conn.execute("INSERT INTO default_modules VALUES ($1)", mod)
             if not response:  # If no error occurred while adding the module to the database report back.
                 await ctx.send(f"The `{clean(ctx, mod)}` module is now a default module.")
             else:
@@ -221,12 +224,13 @@ class CoreFunctionalityCog(commands.Cog):
         no longer automatically be loaded when the bot starts. This command will not unload commands that are already
         loaded. For that, see the `module unload` command. For a list of existing default modules, see the
         `default list` command. For more info on modules see the help text for the `module` command."""
-        result = await tbb.db_get_one(self.bot.db_con, "SELECT module FROM default_modules WHERE module = ?", (mod,))
-        if result:
-            await tbb.db_set(self.bot.db_con, "DELETE FROM default_modules WHERE module = ?", (mod,))
-            await ctx.send(f"Removed `{clean(ctx, mod)}` module from default modules.")
-        else:
-            await ctx.send(f"No `{clean(ctx, mod)}` module in default modules.")
+        async with self.bot.db.acquire() as conn:
+            result = await conn.fetchval("SELECT module FROM default_modules WHERE module = $1", mod)
+            if result:
+                await conn.execute("DELETE FROM default_modules WHERE module = $1", mod)
+                await ctx.send(f"Removed `{clean(ctx, mod)}` module from default modules.")
+            else:
+                await ctx.send(f"No `{clean(ctx, mod)}` module in default modules.")
 
     @commands.has_permissions(administrator=True)
     @commands.command(name="deletemessages", aliases=["deletemsgs", "deletecommands", "deletecmds", "delmessages",
@@ -236,17 +240,23 @@ class CoreFunctionalityCog(commands.Cog):
         trigger commands will be deleted. Is this is disabled then the bot will not delete messages that trigger
         commands. Per default this is enabled. This setting is saved across restarts."""
         op = operation.lower()
-        if op in ["enable", "true", "on", "yes", "y", "+", "1"]:  # Values interpreted as true.
-            await tbb.db_set(self.bot.db_con, "UPDATE settings SET value = ? WHERE flag = ?", ("1", "delete_messages"))
-            self.bot.delete_messages = 1
-            self.bot.delete_messages = 1
-            await ctx.send("Now deleting user commands.")
-        elif op in ["disable", "false", "off", "no", "n", "-", "0"]:  # Values interpreted as false.
-            await tbb.db_set(self.bot.db_con, "UPDATE settings SET value = ? WHERE flag = ?", ("0", "delete_messages"))
-            self.bot.delete_messages = 0
-            await ctx.send("No longer deleting user commands.")
-        else:
-            raise commands.BadArgument("Operation not supported.")
+        async with self.bot.db.acquire() as conn:
+            if op in ["enable", "true", "on", "yes", "y", "+", "1"]:  # Values interpreted as true.
+                if self.bot.delete_messages:
+                    await ctx.send("The bot is already deleting command triggers.")
+                    return
+                await conn.execute("UPDATE settings SET value = '1' WHERE key = 'delete_messages'")
+                self.bot.delete_messages = 1
+                await ctx.send("Now deleting command triggers.")
+            elif op in ["disable", "false", "off", "no", "n", "-", "0"]:  # Values interpreted as false.
+                if not self.bot.delete_messages:
+                    await ctx.send("The bot is already not deleting command triggers.")
+                    return
+                await conn.execute("UPDATE settings SET value = '0' WHERE key = 'delete_messages'")
+                self.bot.delete_messages = 0
+                await ctx.send("No longer deleting command triggers.")
+            else:
+                raise commands.BadArgument("Operation not supported.")
 
     @commands.has_permissions(administrator=True)
     @commands.group(invoke_without_command=True, name="command", aliases=["commands"],
@@ -260,18 +270,19 @@ class CoreFunctionalityCog(commands.Cog):
 
     async def _command_get_state(self, command: commands.Command) -> int:
         """Helper function for command command that gets the state of the command."""
-        cog_com_name = f"{command.cog.__class__.__name__ + '.' if command.cog else ''}{command.name}"
-        response = await tbb.db_get_one(self.bot.db_con, "SELECT state FROM command_states WHERE command = ?",
-                                        (cog_com_name,))
-        if response is None:
-            await tbb.db_set(self.bot.db_con, "INSERT INTO command_states VALUES (?, ?)", (cog_com_name, 0))
-            response = (0,)
-        return response[0]
+        async with self.bot.db.acquire() as conn:
+            cog_com_name = f"{command.cog.__class__.__name__ + '.' if command.cog else ''}{command.name}"
+            response = await conn.fetchval("SELECT state FROM command_states WHERE command = $1", cog_com_name)
+            if response is None:
+                await conn.execute("INSERT INTO command_states VALUES ($1, $2)", cog_com_name, 0)
+                response = 0
+            return response
 
     async def _command_set_state(self, command: commands.Command, state: int):
         """Helper function for command command that sets the state of the command."""
-        await tbb.db_set(self.bot.db_con, "UPDATE command_states SET state = ? WHERE command = ?",
-                         (state, f"{command.cog.__class__.__name__ + '.' if command.cog else ''}{command.name}"))
+        async with self.bot.db.acquire() as conn:
+            await conn.execute("UPDATE command_states SET state = $1 WHERE command = $2",
+                               state, f"{command.cog.__class__.__name__ + '.' if command.cog else ''}{command.name}")
 
     @commands.has_permissions(administrator=True)
     @command.command(name="enable", usage="<COMMAND NAME>")
@@ -420,20 +431,16 @@ class CoreFunctionalityCog(commands.Cog):
         cannot be stopped."""
         if countdown is None:  # If no time is passed along, shut down the bot immediately.
             await ctx.send("Goodbye!")
-            await self.bot.db_con.close()
             await self.bot.close()
-            exit(0)
+            await self.bot.db.close()
         else:
             try:
                 time = tbb.parse_time(countdown, 0, 86400, True)  # Parse time to get time in seconds.
                 await ctx.send(f"Shutdown will commence in {time} seconds.")
                 await asleep(time)
                 await ctx.send("Shutting down!")
-                await self.bot.db_con.close()
-                await self.bot.close()
-                while self.bot.loop.is_running():
-                    await asleep(1)
-                exit(0)
+                await self.bot.logout()
+                await self.bot.db.close()
             except ValueError as e:  # If time parser encounters error, and error is exceeding of limit, report back.
                 if str(e) in ["Time too short.", "Time too long."]:
                     await ctx.send("The time for this command must be between 0 seconds to 24 hours.")
