@@ -1,16 +1,17 @@
 import datetime  # To get current time.
+from copy import copy  # To copy context in help command.
 from re import compile, findall  # Regex functions used in clean function for detecting mentions.
 from typing import Tuple, Dict, List, Union, Optional, Callable, Type  # For type-hinting.
 
-from discord import utils, Forbidden, Embed, Colour, Message, User, Member, TextChannel, VoiceChannel, \
-                    CategoryChannel  # For embeds and deleting messages.
-from discord.ext.commands import Command, Cog, Bot, Context, Converter, UserConverter, BadArgument, \
-                                 TextChannelConverter, CommandError, UserInputError  # For type-hinting.
-
 import asyncpg
+import discord
+from aiohttp import ClientConnectorError as CCError  # To detect connection errors.
+from discord import utils, Forbidden, Embed, Message, User, Member, TextChannel, VoiceChannel, CategoryChannel
+from discord.ext import commands
+from discord.ext.commands import Command, Cog, Bot, Context
 
 
-class GlobalChannel(Converter):
+class GlobalChannel(commands.Converter):
     """Custom converter that returns user, or channel be it in the current server or another."""
     id = None
     name = None
@@ -20,21 +21,21 @@ class GlobalChannel(Converter):
         if isinstance(channel, str) and channel.lower() in ["dm", "dms", "pm", "pms"]:
             return ctx.message.author  # Get DM channel if asked for.
         try:
-            return await UserConverter().convert(ctx, channel)
-        except BadArgument:
+            return await commands.UserConverter().convert(ctx, channel)
+        except commands.BadArgument:
             try:
-                return await TextChannelConverter().convert(ctx, channel)
-            except BadArgument:  # Channel not in server.
+                return await commands.TextChannelConverter().convert(ctx, channel)
+            except commands.BadArgument:  # Channel not in server.
                 try:
                     converted = ctx.bot.get_channel(int(channel))
                     if converted is None:
-                        raise UserInputError(f'Could not identify channel.')
+                        raise commands.UserInputError(f'Could not identify channel.')
                     return converted
                 except ValueError:
-                    raise UserInputError(f'Could not identify channel.')
+                    raise commands.UserInputError(f'Could not identify channel.')
 
 
-class GlobalTextChannel(Converter):
+class GlobalTextChannel(commands.Converter):
     """Custom converter that returns user, or text channel be it in the current server or another."""
     id = None
     name = None
@@ -44,18 +45,18 @@ class GlobalTextChannel(Converter):
         if isinstance(text_channel, str) and text_channel.lower() in ["dm", "dms", "pm", "pms"]:
             return ctx.message.author  # Get DM channel if asked for.
         try:
-            return await UserConverter().convert(ctx, text_channel)
-        except BadArgument:
+            return await commands.UserConverter().convert(ctx, text_channel)
+        except commands.BadArgument:
             try:
-                return await TextChannelConverter().convert(ctx, text_channel)
-            except BadArgument:  # Channel not in server.
+                return await commands.TextChannelConverter().convert(ctx, text_channel)
+            except commands.BadArgument:  # Channel not in server.
                 try:
                     converted = ctx.bot.get_channel(int(text_channel))
                     if not converted or isinstance(converted, VoiceChannel) or isinstance(converted, CategoryChannel):
-                        raise UserInputError(f'Could not identify text channel.')
+                        raise commands.UserInputError(f'Could not identify text channel.')
                     return converted
                 except ValueError:
-                    raise UserInputError(f'Could not identify text channel.')
+                    raise commands.UserInputError(f'Could not identify text channel.')
 
 
 class TravusBotBase(Bot):
@@ -90,7 +91,7 @@ class TravusBotBase(Bot):
         def make_help_embed(self, ctx: Context) -> Embed:
             """Creates embeds for command based on info stored in class."""
             desc = f"Category: {self.category.title()}\n\n{self.description}"
-            embed = Embed(colour=Colour(0x4a4a4a), description=desc if len(desc) < 1950 else f"{desc[:1949]}...",
+            embed = Embed(colour=discord.Color(0x4a4a4a), description=desc if len(desc) < 1950 else f"{desc[:1949]}...",
                           timestamp=datetime.datetime.utcnow())
             embed.set_author(name=f"{self.name.title()} Command")
             aliases = "\n".join(sorted(self.aliases))  # Make and add aliases blurb.
@@ -129,7 +130,7 @@ class TravusBotBase(Bot):
         def make_about_embed(self, ctx: Context) -> Embed:
             """Creates embeds for module based on info stored in class."""
             desc = self.description.replace("_prefix_", self.get_prefix())
-            embed = Embed(colour=Colour(0x4a4a4a), description=desc if len(desc) < 1950 else f"{desc[:1949]}...",
+            embed = Embed(colour=discord.Color(0x4a4a4a), description=desc if len(desc) < 1950 else f"{desc[:1949]}...",
                           timestamp=datetime.datetime.utcnow())
             embed.set_author(name=self.name)
             embed.set_footer(text=ctx.message.author.display_name, icon_url=ctx.message.author.avatar_url)
@@ -142,9 +143,94 @@ class TravusBotBase(Bot):
                 embed.add_field(name="Additional Credits", value=f"{self.credits}", inline=True)
             return embed
 
-    def __init__(self, db: Optional[asyncpg.pool.Pool], *args, **kwargs):
+    class _CustomHelp(commands.HelpCommand):
+        """Class for custom help command."""
+
+        def __init__(self):
+            """Initialization function that sets help and usage text for custom help command."""
+            super(TravusBotBase._CustomHelp, self).__init__(command_attrs={"help": """This command shows a list of
+            categorized commands you have access to. If the name of a command is sent along it will show detailed help
+            information for that command, such as what the command does, aliases, what restrictions it has, and
+            examples.""", "usage": "(COMMAND NAME)"})
+
+        async def _send_help_entry(self, com_object):
+            if com_object.qualified_name in self.context.bot.help.keys():
+                if com_object.enabled:
+                    embed = self.context.bot.help[com_object.qualified_name].make_help_embed(self.context)
+                    await self.get_destination().send(embed=embed)  # Send command help info.
+                else:
+                    await self.get_destination().send(f"The `{com_object.qualified_name}` command has been disabled.")
+            else:
+                await self.get_destination().send("No help information is registered for this command.")
+
+        async def _send_command_list(self, full_mapping):
+            categories = {}  # List of categorized commands.
+            filtered_mapping = {f"`{com.qualified_name}`": com for com in await self.filter_commands(full_mapping)}
+            non_passing = list(set(full_mapping).difference(set(filtered_mapping.values())))
+            new_ctx = copy(self.context)
+            new_ctx.guild = None
+            non_passing = {f'`{com.qualified_name}`¹': com for com in non_passing if await can_run(com, new_ctx)}
+            filtered_mapping.update(non_passing)
+            if len(filtered_mapping.items()) == 0:
+                await self.get_destination().send("No help information was found.")
+                return
+            for com_text, com in filtered_mapping.items():
+                if com.qualified_name in self.context.bot.help.keys():
+                    command_help = self.context.bot.help[com.qualified_name]  # Get command help info.
+                    category = command_help.category.lower() if command_help.category else "no category"
+                    if category not in categories.keys():  # Add category if it wasn't encountered before.
+                        categories[category] = []
+                    categories[category].append(com_text)  # Add command to category.
+            msg = f"__**Help Info {self.context.message.author.mention}:**__\n\n"
+            for category in sorted(categories.keys()):
+                category_text = f"**{category.title()}**\n{', '.join(sorted(categories[category]))}\n\n"
+                if len(category_text) > 1950:
+                    category_text = '\n'.join(split_long_messages(category_text))  # Break up too long categories.
+                msg += self.remove_mentions(category_text)
+            msg += '1 = In DMs only.\n' if len(non_passing) else ""
+            msg += f"Use `{self.context.bot.get_bot_prefix()}help <COMMAND>` for more info on individual commands."
+            msgs = split_long_messages(msg, 1950, "\n")  # Split the message along newlines if over 1950 long.
+            for msg_to_send in msgs:
+                await self.get_destination().send(msg_to_send)
+
+        async def send_bot_help(self, mapping):
+            """Function that triggers when help command is used without command."""
+            full_mapping = []  # Command list.
+            for com_mapping in mapping.values():
+                full_mapping.extend(com_mapping)  # Add all cogs to list.
+            full_mapping = set([com for com in full_mapping if com.enabled and not com.hidden])
+            await self._send_command_list(full_mapping)
+
+        async def send_command_help(self, command_object: Command):
+            """Function that triggers when help command is used with a command."""
+            while command_object.qualified_name not in self.context.bot.help.keys() and len(command_object.parents):
+                command_object = command_object.parents[0]  # Get parent in case it has help text.
+            await self._send_help_entry(command_object)
+
+        async def send_cog_help(self, cog: Cog):
+            """Function that triggers when help command is used with a cog."""
+            full_mapping = set([com for com in cog.get_commands() if com.enabled and not com.hidden])
+            await self._send_command_list(full_mapping)
+
+        async def send_group_help(self, group):
+            """Function that triggers when help command is used with a group."""
+            while group.qualified_name not in self.context.bot.help.keys() and len(group.parents):
+                print(group.parents)
+                group = group.parents[0]  # Get parent in case it has help text.
+            await self._send_help_entry(group)
+
+        async def subcommand_not_found(self, command, string):
+            """Function that returns content of error when subcommand invalid."""
+            return f"The `{command.qualified_name}` command has no subcommand called `{string}`."
+
+        async def command_not_found(self, string):
+            """Function that returns content of error when command not found."""
+            return f"No command called `{string}` found."
+
+    def __init__(self, *args, **kwargs):
         """Initialization function loading all necessary information for TravusBotBase class."""
-        self.db: Optional[asyncpg.pool.Pool] = db
+        super().__init__(*args, **kwargs)
+        self.db: Optional[asyncpg.pool.Pool] = None
         self.last_module_error: Optional[str] = None
         self.last_error: Optional[str] = None
         self.extension_ctx: Optional[Context] = None
@@ -153,8 +239,7 @@ class TravusBotBase(Bot):
         self.prefix: Optional[str] = None
         self.delete_messages: int = 1
         self.is_connected: int = 0
-        self.has_started: bool = False
-        super().__init__(*args, **kwargs)
+        self.help_command = self._CustomHelp()
 
     def get_bot_prefix(self) -> str:
         """Returns the current bot prefix, or a mention of the bot in text form followed by a space."""
@@ -228,6 +313,69 @@ class TravusBotBase(Bot):
             for com in command.walk_commands():
                 if com.qualified_name in self.help.keys():
                     del self.help[com.qualified_name]
+
+    async def on_ready(self):
+        """Loads additional flags and help info, loads default modules and sets bot presence."""
+        if self.user.name.lower() not in self.modules.keys():
+            async with self.db.acquire() as conn:
+                bot_credits = await conn.fetchval("SELECT value FROM settings WHERE key = 'additional_credits'")
+                bot_desc = await conn.fetchval("SELECT value FROM settings WHERE key = 'bot_description'")
+            bot_author = ("[Travus](https://github.com/Travus):\n\tTravus Bot Base\n\tCore functions\n\n"
+                          "[Rapptz](https://github.com/Rapptz):\n\tDiscord.py\n\tasqlite")
+            bot_credits = (
+                bot_credits.replace("\\n", "\n").replace("\\r", "\n").replace("\\t", "\t") if bot_credits else None)
+            bot_desc = bot_desc or "No description for the bot found. A description can be set using the setup file."
+            self.add_module(self.user.name, bot_author, None, bot_desc, bot_credits, self.user.avatar_url)
+        activity = (discord.Activity(type=discord.ActivityType.listening, name=f"prefix: {self.prefix}"
+                    if self.prefix else "pings only"))
+        await self.change_presence(activity=activity)  # Display status message.
+        self.is_connected = 1  # Flag that the bot is currently connected to Discord.
+        print(f"{self.user.name} is ready!\n------------------------------")
+
+    async def on_disconnect(self):
+        """Writes to console if bot disconnects from Discord."""
+        if self.is_connected:  # If the bot was last connected, log disconnect to console.
+            print(f"[{cur_time()}] Disconnected from Discord.")
+            self.is_connected = 0  # Flag that the bot is currently disconnected from Discord.
+
+    async def on_command(self, ctx: Context):
+        """Deletes command if command deletion is set."""
+        if self.delete_messages and ctx.guild:  # If the message is in a server and the delete messages flag is true.
+            try:  # Try to delete message.
+                await ctx.message.delete()
+            except Forbidden:  # Log to console if missing permission to delete message.
+                print(f"[{cur_time()}] Error: Bot does not have required permissions to delete message.")
+
+    async def on_command_error(self, ctx: Context, error=None):
+        """Global error handler for miscellaneous errors."""
+        if isinstance(error, (commands.NoPrivateMessage, commands.CommandOnCooldown, commands.DisabledCommand,
+                              commands.CheckFailure)):
+            pass
+        elif isinstance(error, commands.UserInputError):  # Send correct syntax based on command usage variable.
+            if hasattr(ctx.command, "usage") and ctx.command.usage:
+                await ctx.send(f"Correct syntax: `{self.get_bot_prefix()}"
+                               f"{ctx.command.full_parent_name + ' ' if ctx.command.full_parent_name else ''}"
+                               f"{ctx.invoked_with} {ctx.command.usage or ''}`")
+        elif isinstance(error, commands.NotOwner):  # Log to console.
+            print(f'[{cur_time()}] {ctx.message.author.id}: Command "{ctx.command}" requires bot owner status')
+        elif isinstance(error, commands.MissingPermissions):  # Log to console.
+            print(f'[{cur_time()}] {ctx.message.author.id}: Command "{ctx.command}" '
+                  f'requires additional permissions: {", ".join(error.missing_perms)}')
+        elif isinstance(error, commands.MissingRole):  # Log to console.
+            print(f'[{cur_time()}] {ctx.message.author.id}: Command "{ctx.command}" '
+                  f'requires role: {error.missing_role}')
+        elif isinstance(error, commands.MissingAnyRole):  # Log to console.
+            print(f'[{cur_time()}] {ctx.message.author.id}: Command "{ctx.command}" '
+                  f'requires role: {" or ".join(error.missing_roles)}')
+        elif isinstance(error, commands.CommandNotFound):  # Log to console.
+            print(f'[{cur_time()}] {ctx.message.author.id}: {error}')
+        elif isinstance(error, CCError):  # Log to console if message wasn't properly sent to Discord.
+            print(f'[{cur_time()}] {ctx.message.author.id}: Connection error to Discord. Message lost.')
+        elif isinstance(error.__cause__, Forbidden):  # Log to console if lacking permissions.
+            print(f'[{cur_time()}] {ctx.message.author.id}: Missing permissions.')
+        elif error is not None:  # Log error to console.
+            print(f'[{cur_time()}] {ctx.message.author.id}: {error}')
+        self.last_error = f'[{cur_time()}] {ctx.message.author.id}: {error}'
 
 
 def parse_time(duration: str, minimum: int = None, maximum: int = None, error_on_exceeded: bool = True) -> int:
@@ -320,7 +468,7 @@ async def can_run(command: Command, ctx: Context) -> bool:
     """This function uses command.can_run to see if a command can be run by a user, but does not raise exceptions."""
     try:
         await command.can_run(ctx)
-    except CommandError:
+    except commands.CommandError:
         return False
     else:
         return True
