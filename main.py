@@ -72,29 +72,20 @@ async def run():
             await conn.execute("CREATE TABLE IF NOT EXISTS default_modules(module VARCHAR PRIMARY KEY NOT NULL)")
             await conn.execute("CREATE TABLE IF NOT EXISTS command_states(command VARCHAR PRIMARY KEY NOT NULL, "
                                "state INTEGER NOT NULL)")
-        loaded_prefix = await db.fetchval("SELECT value FROM settings WHERE key = $1", "prefix")
+            await conn.execute("INSERT INTO settings VALUES ('additional_credits', '') ON CONFLICT (key) DO NOTHING")
+            await conn.execute("INSERT INTO settings VALUES ('bot_description', '') ON CONFLICT (key) DO NOTHING")
+            await conn.execute("INSERT INTO settings VALUES ('delete_messages', '0') ON CONFLICT (key) DO NOTHING")
+            await conn.execute("INSERT INTO settings VALUES ('prefix', '?') ON CONFLICT (key) DO NOTHING")
+        loaded_prefix = await db.fetchval("SELECT value FROM settings WHERE key = 'prefix'")
         delete_msgs = await conn.fetchval("SELECT value FROM settings WHERE key = 'delete_messages'")
         default_modules = await conn.fetch("SELECT module FROM default_modules")
-        async with conn.transaction():
-            if "additional_credits" in conf.keys():
-                await conn.execute("INSERT INTO settings VALUES ('additional_credits', $1) "
-                                   "ON CONFLICT (key) DO UPDATE SET value = $1", conf["additional_credits"])
-            if "bot_description" in conf.keys():
-                await conn.execute("INSERT INTO settings VALUES ('bot_description', $1) "
-                                   "ON CONFLICT (key) DO UPDATE SET value = $1", conf["bot_description"])
-            if delete_msgs is None:  # If no delete message flag is in database, set it to off.
-                await conn.execute("INSERT INTO settings VALUES ('delete_messages', '0')")
-                delete_msgs = 0
-            if loaded_prefix is None:
-                await conn.execute("INSERT INTO settings VALUES ('prefix', '!')")
-                loaded_prefix = "!"  # Use default prefix if none is set.
 
     # Assign database pool, prefix, and message deletion flag as bot variables. Add help entry for help command.
     bot.db = db
     bot.prefix = loaded_prefix or None
     bot.delete_messages = int(delete_msgs) if delete_msgs is not None else 0  # Set delete messages flag.
     bot.add_command_help([com for com in bot.commands if com.name == "help"][0], "Core", None,
-                         ["", "info", "clear"])  # Add help info for help command.
+                         ["", "about", "help"])  # Add help info for help command.
 
     # Load default modules.
     default_modules = [mod["module"] for mod in default_modules]

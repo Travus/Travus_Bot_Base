@@ -11,7 +11,14 @@ from travus_bot_base import clean  # Shorthand for cleaning output.
 def setup(bot: tbb.TravusBotBase):
     """Setup function ran when module is loaded."""
     bot.add_cog(CoreFunctionalityCog(bot))  # Add cog and command help info.
-    bot.add_command_help(CoreFunctionalityCog.prefix, "Core", None, ["$", "bot!", "bot ?", "remove"])
+    bot.add_command_help(CoreFunctionalityCog.botconfig, "Core", None,
+                         ["prefix", "deletemessages", "description", "credits"])
+    bot.add_command_help(CoreFunctionalityCog.botconfig_prefix, "Core", None, ["$", "bot!", "bot ?", "remove"])
+    bot.add_command_help(CoreFunctionalityCog.botconfig_deletemessages, "Core", None, ["enable", "y", "disable", "n"])
+    bot.add_command_help(CoreFunctionalityCog.botconfig_description, "Core", None,
+                         ["remove", "This is a sample description."])
+    bot.add_command_help(CoreFunctionalityCog.botconfig_credits, "Core", None,
+                         ["remove", "`\n```\nBot Profile Image:\n\t[Person](URL)\n``"])
     bot.add_command_help(CoreFunctionalityCog.module, "Core", {"perms": ["Administrator"]},
                          ["list", "load", "unload", "reload"])
     bot.add_command_help(CoreFunctionalityCog.module_list, "Core", {"perms": ["Administrator"]}, [""])
@@ -22,8 +29,6 @@ def setup(bot: tbb.TravusBotBase):
     bot.add_command_help(CoreFunctionalityCog.default_list, "Core", None, [""])
     bot.add_command_help(CoreFunctionalityCog.default_add, "Core", None, ["fun", "economy"])
     bot.add_command_help(CoreFunctionalityCog.default_remove, "Core", None, ["fun", "economy"])
-    bot.add_command_help(CoreFunctionalityCog.delete_messages, "Core", {"perms": ["Administrator"]},
-                         ["enable", "y", "disable", "n"])
     bot.add_command_help(CoreFunctionalityCog.command, "Core", {"perms": ["Administrator"]},
                          ["enable", "disable", "show", "hide"])
     bot.add_command_help(CoreFunctionalityCog.command_enable, "Core", {"perms": ["Administrator"]}, ["balance", "pay"])
@@ -97,8 +102,16 @@ class CoreFunctionalityCog(commands.Cog):
             self.bot.extension_ctx = None
 
     @commands.is_owner()
-    @commands.command(name="prefix", usage="<NEW PREFIX/remove>")
-    async def prefix(self, ctx: commands.Context, *, new_prefix: str):
+    @commands.group(invoke_without_command=True, name="botconfig", usage="<prefix/deletemessages/description/credits>")
+    async def botconfig(self, ctx: commands.Context):
+        """This command sets the bot's prefix, command trigger deletion behaviour, description and additional credits
+        section. Fore more information check the help entry of one of these subcommands; `prefix`, `deletemessages`,
+        `description`, `credits`."""
+        raise commands.BadArgument(f"No subcommand given for {ctx.command.name}.")
+
+    @commands.is_owner()
+    @botconfig.command(name="prefix", usage="<NEW PREFIX/remove>")
+    async def botconfig_prefix(self, ctx: commands.Context, *, new_prefix: str):
         """This command changes the bot prefix. The default prefix is `!`. Prefixes can be everything from symbols to
         words or a combination of the two, and can even include spaces, though they cannot start or end with spaces
         since Discord removes empty space at the start and end of messages. The prefix is saved across reboots. Setting
@@ -116,6 +129,78 @@ class CoreFunctionalityCog(commands.Cog):
         else:
             await ctx.send("The bot is now only listens to pings.")
 
+    @commands.is_owner()
+    @botconfig.command(name="deletemessages", aliases=["deletemsgs", "deletecommands", "deletecmds", "delmessages",
+                                                       "delmsgs", "delcommands", "delcmds"], usage="<enable/disable>")
+    async def botconfig_deletemessages(self, ctx: commands.Context, operation: str):
+        """This command sets the behaviour for deletion of command triggers. If this is enabled then messages that
+        trigger commands will be deleted. Is this is disabled then the bot will not delete messages that trigger
+        commands. Per default this is enabled. This setting is saved across restarts."""
+        op = operation.lower()
+        async with self.bot.db.acquire() as conn:
+            if op in ["enable", "true", "on", "yes", "y", "+", "1"]:  # Values interpreted as true.
+                if self.bot.delete_messages:
+                    await ctx.send("The bot is already deleting command triggers.")
+                    return
+                await conn.execute("UPDATE settings SET value = '1' WHERE key = 'delete_messages'")
+                self.bot.delete_messages = 1
+                await ctx.send("Now deleting command triggers.")
+            elif op in ["disable", "false", "off", "no", "n", "-", "0"]:  # Values interpreted as false.
+                if not self.bot.delete_messages:
+                    await ctx.send("The bot is already not deleting command triggers.")
+                    return
+                await conn.execute("UPDATE settings SET value = '0' WHERE key = 'delete_messages'")
+                self.bot.delete_messages = 0
+                await ctx.send("No longer deleting command triggers.")
+            else:
+                raise commands.BadArgument("Operation not supported.")
+
+    @commands.is_owner()
+    @botconfig.command(name="description", aliases=["desc"], usage="<DESCRIPTION/remove>")
+    async def botconfig_description(self, ctx: commands.Context, *, description: str):
+        """This command sets the bot description that is used by the about command. The description can technically be
+        up to 2048 characters long, keep however in mind that Discord messages have a maximum length of 2000 characters
+        characters, that normal messages have, in order to send the command that sets the description. If `remove` is
+        sent along then the description will be removed. The special keyword `_prefix_` wil be replaced by the current
+        bot prefix."""
+        async with self.bot.db.acquire() as conn:
+            if description.lower() == "remove":
+                await conn.execute("UPDATE settings SET value = '' WHERE key = 'bot_description'")
+                self.bot.modules[self.bot.user.name.lower()].description = ("No description for the bot found. "
+                                                                            "Set description with `botconfig` command.")
+                await ctx.send("The description has been removed.")
+            else:
+                await conn.execute("UPDATE settings SET value = $1 WHERE key = 'bot_description'", description)
+                self.bot.modules[self.bot.user.name.lower()].description = description
+                await ctx.send("The description has been set.")
+
+    @commands.is_owner()
+    @botconfig.command(name="credits", usage="<CREDITS/remove>   *OBS: See help command entry!*")
+    async def botconfig_credits(self, ctx: commands.Context, *, description: str):
+        """This command sets the additional credits section of the about command. The additional credits section can be
+        at most 1024 characters long, and supports both new lines, indents and embedded links. Indents of 5 spaces are
+        recommended. Embedded links should look like so; `[displayed text](URL)`. The credits should be passed inside a
+        multi-line code block in order for new lines and tabs to work correctly. If `remove` is passed instead then the
+        additional credits section is removed."""
+        description = description.strip()
+        async with self.bot.db.acquire() as conn:
+            if description.lower() == "remove":
+                await conn.execute("UPDATE settings SET value = '' WHERE key = 'additional_credits'")
+                self.bot.modules[self.bot.user.name.lower()].credits = None
+                await ctx.send("The additional credits section has been removed.")
+                return
+            if description.count("```") != 2 or description[:3] != "```" or description[-3:] != "```":
+                await ctx.send("Credits must be fully encased in a multi-line code block.")
+                return
+            description = description.strip("```").strip()  # Remove code block.
+            description = description.replace(" ", "\u200b\u0009")  # Prevent whitespace from disappearing.
+            if len(description) > 1024:
+                await ctx.send("Credits too long. Credits can be at most 1024 characters long.")
+                return
+            await conn.execute("UPDATE settings SET value = $1 WHERE key = 'additional_credits'", description)
+            self.bot.modules[self.bot.user.name.lower()].credits = description
+            await ctx.send("The additional credits section has been set.")
+
     @commands.has_permissions(administrator=True)
     @commands.group(invoke_without_command=True, name="module", aliases=["modules"],
                     usage="<list/load/unload/reload/error>")
@@ -125,7 +210,7 @@ class CoreFunctionalityCog(commands.Cog):
         modules is to extend the bot's functionality in semi-independent packages so that parts of the bot's
         functionality can be removed or restarted without affecting the rest of the bot's functionality. See the help
         text for the subcommands for more info."""
-        raise commands.BadArgument(f"No sub-command given for {ctx.command.name}.")
+        raise commands.BadArgument(f"No subcommand given for {ctx.command.name}.")
 
     @commands.has_permissions(administrator=True)
     @module.command(name="list")
@@ -187,7 +272,7 @@ class CoreFunctionalityCog(commands.Cog):
         """This command is used to add, remove or list default modules. Modules contain added functionality, such as
         commands. Default modules are loaded automatically when the bot starts and as such any functionality in them
         will be available as soon as the bot is online. For more info see the help text of the subcommands."""
-        raise commands.BadArgument(f"No sub-command given for {ctx.command.name}.")
+        raise commands.BadArgument(f"No subcommand given for {ctx.command.name}.")
 
     @commands.is_owner()
     @default.command(name="list")
@@ -233,32 +318,6 @@ class CoreFunctionalityCog(commands.Cog):
                 await ctx.send(f"No `{clean(ctx, mod)}` module in default modules.")
 
     @commands.has_permissions(administrator=True)
-    @commands.command(name="deletemessages", aliases=["deletemsgs", "deletecommands", "deletecmds", "delmessages",
-                                                      "delmsgs", "delcommands", "delcmds"], usage="<enable/disable>")
-    async def delete_messages(self, ctx: commands.Context, operation: str):
-        """This command sets the behaviour for deletion of command triggers. If this is enabled then messages that
-        trigger commands will be deleted. Is this is disabled then the bot will not delete messages that trigger
-        commands. Per default this is enabled. This setting is saved across restarts."""
-        op = operation.lower()
-        async with self.bot.db.acquire() as conn:
-            if op in ["enable", "true", "on", "yes", "y", "+", "1"]:  # Values interpreted as true.
-                if self.bot.delete_messages:
-                    await ctx.send("The bot is already deleting command triggers.")
-                    return
-                await conn.execute("UPDATE settings SET value = '1' WHERE key = 'delete_messages'")
-                self.bot.delete_messages = 1
-                await ctx.send("Now deleting command triggers.")
-            elif op in ["disable", "false", "off", "no", "n", "-", "0"]:  # Values interpreted as false.
-                if not self.bot.delete_messages:
-                    await ctx.send("The bot is already not deleting command triggers.")
-                    return
-                await conn.execute("UPDATE settings SET value = '0' WHERE key = 'delete_messages'")
-                self.bot.delete_messages = 0
-                await ctx.send("No longer deleting command triggers.")
-            else:
-                raise commands.BadArgument("Operation not supported.")
-
-    @commands.has_permissions(administrator=True)
     @commands.group(invoke_without_command=True, name="command", aliases=["commands"],
                     usage="<enable/disable/show/hide>")
     async def command(self, ctx: commands.Context):
@@ -266,7 +325,7 @@ class CoreFunctionalityCog(commands.Cog):
         the overall help command list. Disabling a command means it can't be used. Disabled commands also do not show
         up in the overall help command list and the specific help text for the command will not be viewable. Core
         commands cannot be disabled. These settings are saved across restarts."""
-        raise commands.BadArgument(f"No sub-command given for {ctx.command.name}.")
+        raise commands.BadArgument(f"No subcommand given for {ctx.command.name}.")
 
     async def _command_get_state(self, command: commands.Command) -> int:
         """Helper function for command command that gets the state of the command."""
