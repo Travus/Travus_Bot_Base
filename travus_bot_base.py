@@ -324,7 +324,7 @@ class TravusBotBase(Bot):
                           "[Rapptz](https://github.com/Rapptz):\n\tDiscord.py\n\tasqlite")
             bot_credits = (
                 bot_credits.replace("\\n", "\n").replace("\\r", "\n").replace("\\t", "\t") if bot_credits else None)
-            bot_desc = bot_desc or "No description for the bot found. A description can be set using the setup file."
+            bot_desc = bot_desc or "No description for the bot found. Set description with `botconfig` command."
             self.add_module(self.user.name, bot_author, None, bot_desc, bot_credits, self.user.avatar_url)
         activity = (discord.Activity(type=discord.ActivityType.listening, name=f"prefix: {self.prefix}"
                     if self.prefix else "pings only"))

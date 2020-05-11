@@ -14,8 +14,8 @@ if __name__ == "__main__":
 
     token_ok = False  # Set to true when the token is valid.
     external = False  # Set to true if a external DB is used.
-    settings = {"discord_token": "", "bot_description": "", "additional_credits": "", "pg_address": "postgres",
-                "pg_user": "postgres", "pg_password": "postgres", "pg_port": "5432", "pg_database": "discord_bot"}
+    settings = {"discord_token": "", "pg_address": "postgres", "pg_user": "postgres", "pg_password": "postgres",
+                "pg_port": "5432", "pg_database": "discord_bot"}
     clr()
     print("Setting up bot...")
     while not token_ok:  # Ask for token repeatedly until received.
@@ -29,18 +29,6 @@ if __name__ == "__main__":
             settings["discord_token"] = token
         else:
             print("Invalid token.")
-    clr()
-    print("Please enter a description of the bot for the about command. (Optional)")
-    print("This needs to be under 2000 characters, does not support indent and newlines.")
-    print("Type _prefix_ for the bot prefix:\n")
-    settings["bot_description"] = input()  # Ask for bot description.
-    clr()
-    print("Please enter additional credits for the about command. (Optional)")
-    print("Credits for the base bot and the library are added automatically.")
-    print("Should look something like this:\n\nPerson:\n\tMaintaining\n\tHosting\n\nPerson:\n\tProfile Image\n")
-    print("Inline linking supported; [Text](URL)\n")
-    print("This needs to be under 1000 characters, use \\n and \\t for newline and indent:")
-    settings["additional_credits"] = input()  # Ask for additional credits.
     clr()
     print("Do you want to use an existing Postgres database? (N/y): ")
     if input().lower() in ["yes", "y", "true", "1"]:
