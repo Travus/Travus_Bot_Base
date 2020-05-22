@@ -193,7 +193,7 @@ class CoreFunctionalityCog(commands.Cog):
                 await ctx.send("Credits must be fully encased in a multi-line code block.")
                 return
             description = description.strip("```").strip()  # Remove code block.
-            description = description.replace(" ", "\u200b\u0009")  # Prevent whitespace from disappearing.
+            description = description.replace(" ", "\u200b\u0020")  # Prevent whitespace from disappearing.
             if len(description) > 1024:
                 await ctx.send("Credits too long. Credits can be at most 1024 characters long.")
                 return

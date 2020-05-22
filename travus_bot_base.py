@@ -120,9 +120,9 @@ class TravusBotBase(Bot):
             self.get_prefix = get_prefix
             self.name = name
             # Convert tabs to non-skipped spaces.
-            self.author = author.replace("\t", "\u200b\u0009\u200b\u0009\u200b\u0009\u200b\u0009\u200b\u0009")
+            self.author = author.replace("\t", "\u200b\u0020\u200b\u0020\u200b\u0020\u200b\u0020\u200b\u0020")
             self.description = description.replace("\n", " ") if description else "No module description found."
-            self.credits = (extra_credits.replace("\t", "\u200b\u0009\u200b\u0009\u200b\u0009\u200b\u0009\u200b\u0009")
+            self.credits = (extra_credits.replace("\t", "\u200b\u0020\u200b\u0020\u200b\u0020\u200b\u0020\u200b\u0020")
                             if extra_credits else None)
             self.image = image_link
             self.usage = usage
