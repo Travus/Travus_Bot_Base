@@ -32,15 +32,8 @@ async def run():
             print("Error: Failed to connect to database. Username or password incorrect.")
             retries -= 1
             await asleep(5)
-        except OSError as e:
-            if "[Errno 10061]" in str(e):
-                print("Error: Failed to connect to database. Connection refused.")
-            elif "[Errno 10060]" in str(e):
-                print("Error: Failed to connect to database. No response.")
-            elif "[Errno 11001]" in str(e):
-                print("Error: Failed to connect to database. Could not resolve host.")
-            else:
-                print(f"Error: {e}")
+        except OSError:
+            print(f"Error: Failed to connect to database. Connection error.")
             retries -= 1
             await asleep(5)
         except Exception as e:
