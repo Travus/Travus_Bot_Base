@@ -53,5 +53,6 @@ if __name__ == "__main__":
     clr()
     print("Necessary info has been set.")  # Report back to user, wait 5 seconds, and end.
     print("Proceed by running the main file." if external else "Proceed by running 'docker-compose up'.")
+    print("Once the bot has started, use the 'botconfig' command to change it's settings.")
     sleep(5)
     exit(0)
