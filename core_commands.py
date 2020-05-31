@@ -18,7 +18,7 @@ def setup(bot: tbb.TravusBotBase):
     bot.add_command_help(CoreFunctionalityCog.botconfig_description, "Core", None,
                          ["remove", "This is a sample description."])
     bot.add_command_help(CoreFunctionalityCog.botconfig_credits, "Core", None,
-                         ["remove", "`\n```\nBot Profile Image:\n\t[Person](URL)\n``"])
+                         ["remove", "`\n```\n[Person](URL):\n\tBot Profile Image\n``"])
     bot.add_command_help(CoreFunctionalityCog.module, "Core", {"perms": ["Administrator"]},
                          ["list", "load", "unload", "reload"])
     bot.add_command_help(CoreFunctionalityCog.module_list, "Core", {"perms": ["Administrator"]}, [""])
@@ -193,7 +193,7 @@ class CoreFunctionalityCog(commands.Cog):
                 await ctx.send("Credits must be fully encased in a multi-line code block.")
                 return
             description = description.strip("```").strip()  # Remove code block.
-            description = description.replace(" ", "\u200b\u0020")  # Prevent whitespace from disappearing.
+            description = description.replace(" ", "\u202F")  # Prevent whitespace from disappearing.
             if len(description) > 1024:
                 await ctx.send("Credits too long. Credits can be at most 1024 characters long.")
                 return

@@ -120,10 +120,9 @@ class TravusBotBase(Bot):
             self.get_prefix = get_prefix
             self.name = name
             # Convert tabs to non-skipped spaces.
-            self.author = author.replace("\t", "\u200b\u0020\u200b\u0020\u200b\u0020\u200b\u0020\u200b\u0020")
+            self.author = author.replace("\t", "\u202F\u202F\u202F\u202F\u202F")
             self.description = description.replace("\n", " ") if description else "No module description found."
-            self.credits = (extra_credits.replace("\t", "\u200b\u0020\u200b\u0020\u200b\u0020\u200b\u0020\u200b\u0020")
-                            if extra_credits else None)
+            self.credits = (extra_credits.replace("\t", "\u202F\u202F\u202F\u202F\u202F") if extra_credits else None)
             self.image = image_link
             self.usage = usage
 
@@ -154,6 +153,7 @@ class TravusBotBase(Bot):
             examples.""", "usage": "(COMMAND NAME)"})
 
         async def _send_help_entry(self, com_object):
+            """Help function which sends help entry og single command. Factored out for DRYer code."""
             if com_object.qualified_name in self.context.bot.help.keys():
                 if com_object.enabled:
                     embed = self.context.bot.help[com_object.qualified_name].make_help_embed(self.context)
@@ -164,6 +164,7 @@ class TravusBotBase(Bot):
                 await self.get_destination().send("No help information is registered for this command.")
 
         async def _send_command_list(self, full_mapping):
+            """Help function which sends the command list. Factored out for DRYer code."""
             categories = {}  # List of categorized commands.
             filtered_mapping = {f"`{com.qualified_name}`": com for com in await self.filter_commands(full_mapping)}
             non_passing = list(set(full_mapping).difference(set(filtered_mapping.values())))
