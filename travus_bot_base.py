@@ -322,7 +322,7 @@ class TravusBotBase(Bot):
                 bot_credits = await conn.fetchval("SELECT value FROM settings WHERE key = 'additional_credits'")
                 bot_desc = await conn.fetchval("SELECT value FROM settings WHERE key = 'bot_description'")
             bot_author = ("[Travus](https://github.com/Travus):\n\tTravus Bot Base\n\tCore functions\n\n"
-                          "[Rapptz](https://github.com/Rapptz):\n\tDiscord.py\n\tasqlite")
+                          "[Rapptz](https://github.com/Rapptz):\n\tDiscord.py")
             bot_credits = (
                 bot_credits.replace("\\n", "\n").replace("\\r", "\n").replace("\\t", "\t") if bot_credits else None)
             bot_desc = bot_desc or "No description for the bot found. Set description with `botconfig` command."
