@@ -68,7 +68,7 @@ async def run():
             await conn.execute("INSERT INTO settings VALUES ('additional_credits', '') ON CONFLICT (key) DO NOTHING")
             await conn.execute("INSERT INTO settings VALUES ('bot_description', '') ON CONFLICT (key) DO NOTHING")
             await conn.execute("INSERT INTO settings VALUES ('delete_messages', '0') ON CONFLICT (key) DO NOTHING")
-            await conn.execute("INSERT INTO settings VALUES ('prefix', '?') ON CONFLICT (key) DO NOTHING")
+            await conn.execute("INSERT INTO settings VALUES ('prefix', '!') ON CONFLICT (key) DO NOTHING")
         loaded_prefix = await db.fetchval("SELECT value FROM settings WHERE key = 'prefix'")
         delete_msgs = await conn.fetchval("SELECT value FROM settings WHERE key = 'delete_messages'")
         default_modules = await conn.fetch("SELECT module FROM default_modules")
