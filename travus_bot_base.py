@@ -316,7 +316,8 @@ class TravusBotBase(Bot):
                     del self.help[com.qualified_name]
 
     async def on_ready(self):
-        """Loads additional flags and help info, loads default modules and sets bot presence."""
+        """This function runs every time the bot connects to Discord. This happens multiple times.
+        Sets about command and bot status. These require the bot to be online and hence are in here."""
         if self.user.name.lower() not in self.modules.keys():
             async with self.db.acquire() as conn:
                 bot_credits = await conn.fetchval("SELECT value FROM settings WHERE key = 'additional_credits'")
@@ -418,51 +419,6 @@ async def send_in_global_channel(ctx: Context, channel: GlobalTextChannel, msg: 
             await ctx.send("You do not have permission to send messages in this channel.")
     except Forbidden:
         await ctx.send("Cannot send messages in given channel.")
-
-
-async def db_get_one(connection: asyncpg.pool.Pool, query: str, variable: tuple) -> Union[tuple, None]:
-    """Returns the result of a database query and fetch_one."""
-    db = connection
-    result = await db.fetchrow(query, variable)
-    result = tuple(result) if result is not None else None
-    await db.close()
-    return result
-
-
-async def db_get_all(connection: asyncpg.pool.Pool, query: str, variables: tuple) -> Union[List[tuple], None]:
-    """Returns the result of a database query and fetch_all."""
-    db = connection
-    result = await db.fetch(query, variables)
-    result = [tuple(val) for val in result] if result is not None else None
-    await db.close()
-    return result
-
-
-async def db_set(connection: asyncpg.pool.Pool, query: str, variables: tuple) -> Union[Exception, None]:
-    """Executes a database command without fetching anything."""
-    try:  # Try executing database query.
-        await connection.execute(query, variables)
-    except Exception as e:  # If we hit a database constraint, return error.
-        return e
-    return None
-
-
-async def db_set_many(connection: asyncpg.pool.Pool, queries: Tuple[str, ...],
-                      variables: Tuple[tuple, ...]) -> Union[Exception, None]:
-    """Executes multiple database commands without fetching anything."""
-    if len(queries) < len(variables):
-        raise RuntimeError("More variables than queries found.")
-    elif len(queries) > len(variables):
-        variables = list(variables)
-        while len(queries) > len(variables):
-            variables.append(())
-        variables = tuple(variables)
-    try:  # Try executing database queries.
-        for query, variable in zip(queries, variables):
-            await connection.execute(query, variable)
-    except Exception as e:  # If we hit a database constraint, return error.
-        return e
-    return None
 
 
 async def can_run(command: Command, ctx: Context) -> bool:
