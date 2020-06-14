@@ -6,8 +6,7 @@ services:
     depends_on:
       - postgres
     volumes:
-      - modules:/usr/src/app/modules
-      - ./database.sqlite:/usr/src/app/database.sqlite
+      - ./modules:/usr/src/app/modules
 
   postgres:
     image: postgres
@@ -19,7 +18,5 @@ services:
       - database:/var/lib/postgresql/data
 
 volumes:
-  modules:
-    external: false
   database:
     external: false
