@@ -17,6 +17,9 @@ async def run():
     # Attempt to connect to database.
     retries = 5
     db = None
+    if "config.yml" not in os.listdir("."):
+        print("Please run setup.py first!")
+        exit(5)
     with open("config.yml", "r") as config:
         conf = yaml.safe_load(config)
     while retries:
