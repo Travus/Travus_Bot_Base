@@ -1,7 +1,7 @@
 import datetime  # To get current time.
 from copy import copy  # To copy context in help command.
 from re import compile, findall  # Regex functions used in clean function for detecting mentions.
-from typing import Tuple, Dict, List, Union, Optional, Callable, Type  # For type-hinting.
+from typing import Dict, List, Union, Optional, Callable, Type  # For type-hinting.
 
 import asyncpg
 import discord
