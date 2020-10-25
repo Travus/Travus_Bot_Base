@@ -29,10 +29,10 @@ class GlobalChannel(commands.Converter):
                 try:
                     converted = ctx.bot.get_channel(int(channel))
                     if converted is None:
-                        raise commands.UserInputError(f'Could not identify channel.')
+                        raise commands.UserInputError("Could not identify channel.")
                     return converted
                 except ValueError:
-                    raise commands.UserInputError(f'Could not identify channel.')
+                    raise commands.UserInputError("Could not identify channel.")
 
 
 class GlobalTextChannel(commands.Converter):
@@ -53,10 +53,10 @@ class GlobalTextChannel(commands.Converter):
                 try:
                     converted = ctx.bot.get_channel(int(text_channel))
                     if not converted or isinstance(converted, VoiceChannel) or isinstance(converted, CategoryChannel):
-                        raise commands.UserInputError(f'Could not identify text channel.')
+                        raise commands.UserInputError("Could not identify text channel.")
                     return converted
                 except ValueError:
-                    raise commands.UserInputError(f'Could not identify text channel.')
+                    raise commands.UserInputError("Could not identify text channel.")
 
 
 class TravusBotBase(Bot):

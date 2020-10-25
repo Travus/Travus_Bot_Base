@@ -426,7 +426,7 @@ class CoreFunctionalityCog(commands.Cog):
                 embed = self.bot.modules[self.bot.user.name.lower()].make_about_embed(ctx)  # Make and send response.
                 await ctx.send(embed=embed)
             else:
-                raise RuntimeError(f"Bot info module not found.")
+                raise RuntimeError("Bot info module not found.")
         elif module_name.lower() in self.bot.modules.keys():  # Check if the passed along value has an entry.
             embed = self.bot.modules[module_name.lower()].make_about_embed(ctx)  # Make and send response.
             await ctx.send(embed=embed)
