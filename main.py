@@ -37,7 +37,7 @@ async def run():
             retries -= 1
             await asleep(5)
         except OSError:
-            print(f"Error: Failed to connect to database. Connection error.")
+            print("Error: Failed to connect to database. Connection error.")
             retries -= 1
             await asleep(5)
         except Exception as e:
@@ -114,7 +114,7 @@ async def run():
         else:
             raise FileNotFoundError("Core commands file not found.")
     except FileNotFoundError:  # If core_commands.py file is not found, error to console and shut down.
-        print(f"Error: Core commands file not found.")
+        print("Error: Core commands file not found.")
         await db.close()
         exit(4)
     except Exception as e:  # If error is encountered in core_commands.py error to console and shut down.
