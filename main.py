@@ -4,6 +4,7 @@ from asyncio import sleep as asleep, get_event_loop
 import asyncpg
 import requests
 import yaml
+from discord import Intents
 from discord.ext import commands  # For command functionality.
 
 import travus_bot_base as tbb  # TBB functions and classes.
@@ -141,7 +142,8 @@ async def get_prefix(bot_object, message):
         return commands.when_mentioned(bot_object, message)  # There is no prefix set.
 
 if __name__ == '__main__':
-    bot = tbb.TravusBotBase(command_prefix=get_prefix)
+    intent = Intents.all()
+    bot = tbb.TravusBotBase(command_prefix=get_prefix, intents=intent)
     try:
         get_event_loop().run_until_complete(run())
     except KeyboardInterrupt:
