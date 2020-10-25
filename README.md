@@ -70,7 +70,7 @@ To start the bot simply run `main.py` in Python 3.6 or newer.
 To stop the bot simply interrupt the program with `ctrl + c` or by closing the terminal.
 
 **6: Configure the Bot (Optional)**  
-How that you have started the bot, you can change its settings from inside Discord via bot commands. The settings you can change include; [changing the bot prefix](https://github.com/Travus/Travus_Bot_Base/wiki/Commands#changing-prefix), setting whether the bot should [delete command triggers or not](https://github.com/Travus/Travus_Bot_Base/wiki/Commands#deleting-command-triggers), and writing the [bot description and additional credit sections](https://github.com/Travus/Travus_Bot_Base/wiki/Commands#customize-bot-information) for the about command. For more information on how to change these settings look up the [botconfig command](https://github.com/Travus/Travus_Bot_Base/wiki/Commands#) on the [command reference page](https://github.com/Travus/Travus_Bot_Base/wiki/Commands).  
+How that you have started the bot, you can change its settings from inside Discord via bot commands. The settings you can change include; [changing the bot prefix](https://github.com/Travus/Travus_Bot_Base/wiki/Commands#changing-prefix), setting whether the bot should [delete command triggers or not](https://github.com/Travus/Travus_Bot_Base/wiki/Commands#deleting-command-triggers), and writing the [bot description and additional credit sections](https://github.com/Travus/Travus_Bot_Base/wiki/Commands#customize-bot-information) for the about command. For more information see the [command reference page](https://github.com/Travus/Travus_Bot_Base/wiki/Commands).  
 
 ---
 ### Contact & Credits
