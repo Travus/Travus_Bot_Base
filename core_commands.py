@@ -1,3 +1,4 @@
+import logging
 from asyncio import sleep as asleep  # For waiting asynchronously.
 from os import listdir  # To check files on disk.
 
@@ -52,6 +53,8 @@ class CoreFunctionalityCog(commands.Cog):
     def __init__(self, bot: tbb.TravusBotBase):
         """Initialization function loading bot object for cog."""
         self.bot = bot
+        self.log = logging.getLogger("core_commands")
+        self.log.setLevel(logging.INFO)
 
     async def _module_operation(self, ctx: commands.Context, operation: str, mod: str):
         """To avoid code duplication in the except blocks all module command functionality is grouped together."""
@@ -64,19 +67,19 @@ class CoreFunctionalityCog(commands.Cog):
                     self.bot.load_extension(f"modules.{mod}")
                     await self.bot.update_command_states()
                     await ctx.send(f"Module `{clean(ctx, mod)}` successfully loaded.")
-                    print(f"[{tbb.cur_time()}] {ctx.message.author.id} loaded '{mod}' module.")
+                    self.log.info(f"{ctx.message.author.id}: loaded '{mod}' module.")
                 else:
                     await ctx.send(f"No `{clean(ctx, mod)}` module was found.")
             elif operation == "unload":
                 self.bot.unload_extension(f"modules.{mod}")
                 await ctx.send(f"Module `{clean(ctx, mod)}` successfully unloaded.")
-                print(f"[{tbb.cur_time()}] {ctx.message.author.id} unloaded '{mod}' module.")
+                self.log.info(f"[{tbb.cur_time()}] {ctx.message.author.id}: unloaded '{mod}' module.")
             elif operation == "reload":  # Try reloading the module.
                 if f"{mod}.py" in listdir("modules"):  # Check if module is even still there before we reload.
                     self.bot.reload_extension(f"modules.{mod}")
                     await self.bot.update_command_states()
                     await ctx.send(f"Module `{clean(ctx, mod)}` successfully reloaded.")
-                    print(f"[{tbb.cur_time()}] {ctx.message.author.id} reloaded '{mod}' module.")
+                    self.log.info(f"[{tbb.cur_time()}] {ctx.message.author.id}: reloaded '{mod}' module.")
                 else:
                     if mod in self.bot.modules:
                         await ctx.send(f"The `{clean(ctx, mod)}` module file is no longer found on disk. "
@@ -91,11 +94,10 @@ class CoreFunctionalityCog(commands.Cog):
             self.bot.help = old_help
             self.bot.modules = old_modules
             await ctx.send("**Error! Something went really wrong! Contact module maintainer.**\n"
-                           "Error printed to console and stored in module error command.")
+                           "Error logged to console and stored in module error command.")
             if isinstance(e, commands.ExtensionNotFound):  # Clarify error further in case it was an import error.
                 e = e.__cause__
-            print(f"[{tbb.cur_time()}] {ctx.message.author.id} tried loading '{mod}' module, and it failed:"
-                  f"\n\n{str(e)}")
+            self.log.error(f"{ctx.message.author.id}: tried loading '{mod}' module, and it failed:\n\n{str(e)}")
             self.bot.last_module_error = f"The `{clean(ctx, mod)}` module failed while loading. The error was:" \
                                          f"\n\n{clean(ctx, str(e))}"
         finally:  # Reset context as loading has concluded.
@@ -259,7 +261,7 @@ class CoreFunctionalityCog(commands.Cog):
     @module.command(name="error")
     async def module_error(self, ctx: commands.Context):
         """This command will show the last error that was encountered during the module load or reloading process. This
-        information will also be printed to the console when the error first is encountered. This command retains this
+        information will also be logged to the console when the error first is encountered. This command retains this
         information until another error replaces it, or the bot shuts down."""
         if self.bot.last_module_error:
             await ctx.send(self.bot.last_module_error)
@@ -504,6 +506,6 @@ class CoreFunctionalityCog(commands.Cog):
                 if str(e) in ["Time too short.", "Time too long."]:
                     await ctx.send("The time for this command must be between 0 seconds to 24 hours.")
                 else:  # If another error is encountered, log to console.
-                    await ctx.send("The time could not be parsed correctly. Check the help command for shutdown for "
-                                   "examples of times.")
-                    print(f'[{tbb.cur_time()}] {ctx.message.author.id}: {str(e)}')
+                    await ctx.send("The time could not be parsed correctly.")
+                    self.log.error(f"{ctx.message.author.id}: {str(e)}")
+                    self.bot.last_error = f"{ctx.message.author.id}: {str(e)}"

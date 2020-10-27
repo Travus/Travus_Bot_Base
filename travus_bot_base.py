@@ -1,4 +1,5 @@
 import datetime  # To get current time.
+import logging
 from copy import copy  # To copy context in help command.
 from re import compile, findall  # Regex functions used in clean function for detecting mentions.
 from typing import Dict, List, Union, Optional, Callable, Type  # For type-hinting.
@@ -216,7 +217,6 @@ class TravusBotBase(Bot):
         async def send_group_help(self, group):
             """Function that triggers when help command is used with a group."""
             while group.qualified_name not in self.context.bot.help.keys() and len(group.parents):
-                print(group.parents)
                 group = group.parents[0]  # Get parent in case it has help text.
             await self._send_help_entry(group)
 
@@ -231,6 +231,7 @@ class TravusBotBase(Bot):
     def __init__(self, *args, **kwargs):
         """Initialization function loading all necessary information for TravusBotBase class."""
         super().__init__(*args, **kwargs)
+        self.log = BOT_LOG
         self.db: Optional[asyncpg.pool.Pool] = None
         self.last_module_error: Optional[str] = None
         self.last_error: Optional[str] = None
@@ -332,12 +333,12 @@ class TravusBotBase(Bot):
                     if self.prefix else "pings only"))
         await self.change_presence(activity=activity)  # Display status message.
         self.is_connected = 1  # Flag that the bot is currently connected to Discord.
-        print(f"{self.user.name} is ready!\n------------------------------")
+        self.log.info(f"{self.user.name} is ready!\n------------------------------")
 
     async def on_disconnect(self):
         """Writes to console if bot disconnects from Discord."""
         if self.is_connected:  # If the bot was last connected, log disconnect to console.
-            print(f"[{cur_time()}] Disconnected from Discord.")
+            self.log.info("Disconnected from Discord.")
             self.is_connected = 0  # Flag that the bot is currently disconnected from Discord.
 
     async def on_command(self, ctx: Context):
@@ -346,7 +347,7 @@ class TravusBotBase(Bot):
             try:  # Try to delete message.
                 await ctx.message.delete()
             except Forbidden:  # Log to console if missing permission to delete message.
-                print(f"[{cur_time()}] Error: Bot does not have required permissions to delete message.")
+                self.log.warning("Bot does not have required permissions to delete message.")
 
     async def on_command_error(self, ctx: Context, error=None):
         """Global error handler for miscellaneous errors."""
@@ -359,24 +360,23 @@ class TravusBotBase(Bot):
                                f"{ctx.command.full_parent_name + ' ' if ctx.command.full_parent_name else ''}"
                                f"{ctx.invoked_with} {ctx.command.usage or ''}`")
         elif isinstance(error, commands.NotOwner):  # Log to console.
-            print(f'[{cur_time()}] {ctx.message.author.id}: Command "{ctx.command}" requires bot owner status')
+            self.log.warning(f'{ctx.message.author.id}: Command "{ctx.command}" requires bot owner status')
         elif isinstance(error, commands.MissingPermissions):  # Log to console.
-            print(f'[{cur_time()}] {ctx.message.author.id}: Command "{ctx.command}" '
-                  f'requires additional permissions: {", ".join(error.missing_perms)}')
+            self.log.warning(f'{ctx.message.author.id}: Command "{ctx.command}" requires additional permissions: '
+                             f'{", ".join(error.missing_perms)}')
         elif isinstance(error, commands.MissingRole):  # Log to console.
-            print(f'[{cur_time()}] {ctx.message.author.id}: Command "{ctx.command}" '
-                  f'requires role: {error.missing_role}')
+            self.log.warning(f'{ctx.message.author.id}: Command "{ctx.command}" requires role: {error.missing_role}')
         elif isinstance(error, commands.MissingAnyRole):  # Log to console.
-            print(f'[{cur_time()}] {ctx.message.author.id}: Command "{ctx.command}" '
-                  f'requires role: {" or ".join(error.missing_roles)}')
+            self.log.warning(f'{ctx.message.author.id}: Command "{ctx.command}" requires role: '
+                             f'{" or ".join(error.missing_roles)}')
         elif isinstance(error, commands.CommandNotFound):  # Log to console.
-            print(f'[{cur_time()}] {ctx.message.author.id}: {error}')
+            self.log.warning(f'{ctx.message.author.id}: {error}')
         elif isinstance(error, CCError):  # Log to console if message wasn't properly sent to Discord.
-            print(f'[{cur_time()}] {ctx.message.author.id}: Connection error to Discord. Message lost.')
+            self.log.warning(f'{ctx.message.author.id}: Connection error to Discord. Message lost.')
         elif isinstance(error.__cause__, Forbidden):  # Log to console if lacking permissions.
-            print(f'[{cur_time()}] {ctx.message.author.id}: Missing permissions.')
+            self.log.warning(f'{ctx.message.author.id}: Missing permissions.')
         elif error is not None:  # Log error to console.
-            print(f'[{cur_time()}] {ctx.message.author.id}: {error}')
+            self.log.warning(f'{ctx.message.author.id}: {error}')
         self.last_error = f'[{cur_time()}] {ctx.message.author.id}: {error}'
 
 
@@ -442,7 +442,7 @@ async def del_message(msg: Message):
         try:  # Try to delete message.
             await msg.delete()
         except Forbidden:  # Log to console if missing permission to delete message.
-            print(f"[{cur_time()}] Error: Bot does not have required permissions to delete message.")
+            BOT_LOG.warning("Bot does not have required permissions to delete message.")
 
 
 def clean(ctx: Context, text: str, escape_markdown: bool = True) -> str:
@@ -455,7 +455,7 @@ def clean(ctx: Context, text: str, escape_markdown: bool = True) -> str:
         return '@' + m.name if m else '@deleted-user'
 
     transformations.update(('<@%s>' % member_id, resolve_member(member_id)) for member_id
-                           in [int(x)for x in findall(r'<@!?([0-9]+)>', text)])
+                           in [int(x) for x in findall(r'<@!?([0-9]+)>', text)])
     transformations.update(('<@!%s>' % member_id, resolve_member(member_id)) for member_id
                            in [int(x) for x in findall(r'<@!?([0-9]+)>', text)])
 
@@ -487,6 +487,7 @@ def clean(ctx: Context, text: str, escape_markdown: bool = True) -> str:
 
 def unembed_urls(text: str) -> str:
     """Finds all URLs in a text and encases them in <> to escape prevent embedding."""
+
     def repl(obj):
         """Function used in regex substitution."""
         return f"<{obj.group(0).strip('<').strip('>')}>"
@@ -515,3 +516,7 @@ def split_long_messages(text: str, max_len: int = 1950, delimiter: str = " ") ->
     if "" in messages:
         messages.remove("")
     return messages
+
+
+BOT_LOG = logging.getLogger("bot")
+BOT_LOG.setLevel(logging.INFO)
