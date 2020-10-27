@@ -1,3 +1,4 @@
+import logging
 import os  # To check directory contents and make directories.
 from asyncio import sleep as asleep, get_event_loop
 
@@ -14,12 +15,13 @@ async def run():
     """Connect, set up and fetch from database, load default modules and core_commands file and start bot."""
     if "modules" not in os.listdir("."):  # Makes sure modules directory exists.
         os.mkdir("modules")
+        log.info("Created modules directory.")
 
     # Attempt to connect to database.
     retries = 5
     db = None
     if "config.yml" not in os.listdir("."):
-        print("Please run setup.py first!")
+        log.critical("Please run setup.py first!")
         exit(5)
     with open("config.yml", "r") as config:
         conf = yaml.safe_load(config)
@@ -29,36 +31,36 @@ async def run():
                                            host=conf["pg_address"], port=conf["pg_port"], database=conf["pg_database"])
             break
         except asyncpg.exceptions.InvalidCatalogNameError:
-            print("Error: Failed to connect to database. Database name not found.")
+            log.error("Error: Failed to connect to database. Database name not found.")
             retries -= 1
             await asleep(5)
         except asyncpg.exceptions.InvalidPasswordError:
-            print("Error: Failed to connect to database. Username or password incorrect.")
+            log.error("Error: Failed to connect to database. Username or password incorrect.")
             retries -= 1
             await asleep(5)
         except OSError:
-            print("Error: Failed to connect to database. Connection error.")
+            log.error("Error: Failed to connect to database. Connection error.")
             retries -= 1
             await asleep(5)
         except Exception as e:
-            print(f"Error: {e}")
+            log.error(f"Error: {e}")
             retries -= 1
             await asleep(5)
     if not retries:
-        print("Failed to connect to database.")
+        log.critical("Failed to connect to database.")
         exit(1)
 
     # Validate Discord token.
     discord_token = conf["discord_token"] if "discord_token" in conf.keys() else None  # Get bot token.
     if discord_token is None:  # Stop if no Discord token was found.
-        print("Error: Discord bot token missing. Please run the setup file to set up the bot.")
+        log.critical("Error: Discord bot token missing. Please run the setup file to set up the bot.")
         await db.close()
         exit(2)
     else:
         headers = {"Authorization": f"Bot {discord_token}"}
         r = requests.get("https://discordapp.com/api/users/@me", headers=headers)
         if not r.ok:
-            print("Error: Login failure, bot token is likely wrong or Discord is down!")
+            log.critical("Error: Login failure, bot token is likely wrong or Discord is down!")
             await db.close()
             exit(2)
 
@@ -96,16 +98,17 @@ async def run():
             else:
                 raise FileNotFoundError("Core commands file not found.")
         except FileNotFoundError:  # If module wasn't found.
-            print(f"[{tbb.cur_time()}] Default module '{mod}' not found.")
+            bot.last_error = f"Default module '{mod}' not found."
+            log.warning(f"Default module '{mod}' not found.")
         except Exception as e:  # If en error was encountered while loading default module, roll back.
             bot.help = old_help
             bot.modules = old_modules
             if isinstance(e, commands.ExtensionNotFound):  # If import error, clarify further.
                 e = e.__cause__
-            print(f"[{tbb.cur_time()}] Default module '{mod}' encountered and error.\n\n{str(e)}")
+            log.error(f"Default module '{mod}' encountered and error.\n\n{str(e)}")
             bot.last_module_error = f"The `{mod}` module failed while loading. The error was:\n\n{str(e)}"
         else:
-            print(f"Default module '{mod}' loaded.")
+            log.info(f"Default module '{mod}' loaded.")
     await bot.update_command_states()  # Make sure commands are in the right state. (hidden, disabled)
 
     try:  # Try loading core_commands.py file containing basic non-unloadable commands.
@@ -114,16 +117,17 @@ async def run():
         else:
             raise FileNotFoundError("Core commands file not found.")
     except FileNotFoundError:  # If core_commands.py file is not found, error to console and shut down.
-        print("Error: Core commands file not found.")
+        log.critical("Error: Core commands file not found.")
         await db.close()
         exit(4)
     except Exception as e:  # If error is encountered in core_commands.py error to console and shut down.
         if isinstance(e, commands.ExtensionNotFound):  # If import error, clarify error further.
             e = e.__cause__
-        print(f"Error: Core functionality file failed to load.\n\nError:\n{e}")
+        log.critical(f"Error: Core functionality file failed to load.\n\nError:\n{e}")
         await db.close()
         exit(3)
 
+    log.info("Starting bot...")
     await bot.start(discord_token)
 
 
@@ -131,7 +135,7 @@ async def close():
     """Coses the bot and the database connections."""
     await bot.close()
     await bot.db.close()
-    print("Bot closed due to KeyboardInterrupt.")
+    log.info("Bot closed due to KeyboardInterrupt.")
 
 
 async def get_prefix(bot_object, message):
@@ -142,6 +146,9 @@ async def get_prefix(bot_object, message):
         return commands.when_mentioned(bot_object, message)  # There is no prefix set.
 
 if __name__ == '__main__':
+    logging.basicConfig(format="%(asctime)s %(name)s %(levelname)s: %(message)s", datefmt='%Y-%m-%d %H:%M:%S')
+    log = logging.getLogger("main")
+    log.setLevel(logging.INFO)
     intent = Intents.all()
     bot = tbb.TravusBotBase(command_prefix=get_prefix, intents=intent)
     try:
