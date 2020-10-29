@@ -2,6 +2,7 @@ import logging
 from asyncio import sleep as asleep  # For waiting asynchronously.
 from os import listdir  # To check files on disk.
 
+from asyncpg import IntegrityConstraintViolationError  # To check for database conflicts.
 from discord import Embed, Activity, ActivityType  # For bot status
 from discord.ext import commands  # For implementation of bot commands.
 
@@ -295,11 +296,11 @@ class CoreFunctionalityCog(commands.Cog):
         the next time. For that, see the `module load` command. For a list of existing default modules, see the
         `default list` command. For more info on modules see the help text for the `module` command."""
         if f"{mod}.py" in listdir("modules"):  # Check if such a module even exists.
-            async with self.bot.db.acquire() as conn:
-                response = await conn.execute("INSERT INTO default_modules VALUES ($1)", mod)
-            if not response:  # If no error occurred while adding the module to the database report back.
-                await ctx.send(f"The `{clean(ctx, mod)}` module is now a default module.")
-            else:
+            try:
+                async with self.bot.db.acquire() as conn:
+                    await conn.execute("INSERT INTO default_modules VALUES ($1)", mod)
+                    await ctx.send(f"The `{clean(ctx, mod)}` module is now a default module.")
+            except IntegrityConstraintViolationError:
                 await ctx.send(f"The `{clean(ctx, mod)}` module is already a default module.")
         else:
             await ctx.send(f"No `{clean(ctx, mod)}` module was found.")
