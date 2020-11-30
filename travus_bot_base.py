@@ -393,12 +393,12 @@ def parse_time(duration: str, minimum: int = None, maximum: int = None, error_on
             last = c + 1
         elif duration[c] not in ["+", "-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]:  # Valid characters.
             raise ValueError("Invalid character encountered during time parsing.")
-    if t_total < minimum:  # If total time is less than minimum.
+    if minimum and t_total < minimum:  # If total time is less than minimum.
         if error_on_exceeded:
             raise ValueError("Time too short.")
         else:
             t_total = minimum
-    if t_total > maximum:  # If total time is more than maximum.
+    if maximum and t_total > maximum:  # If total time is more than maximum.
         if error_on_exceeded:
             raise ValueError("Time too long.")
         else:
