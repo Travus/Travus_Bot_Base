@@ -2,6 +2,7 @@ import datetime  # To get current time.
 import logging
 from copy import copy  # To copy context in help command.
 from re import compile, findall  # Regex functions used in clean function for detecting mentions.
+from types import SimpleNamespace
 from typing import Dict, List, Union, Optional, Callable, Type  # For type-hinting.
 
 import asyncpg
@@ -483,6 +484,13 @@ def clean(ctx: Context, text: str, escape_markdown: bool = True) -> str:
     if escape_markdown:
         result = utils.escape_markdown(result)
     return utils.escape_mentions(result)
+
+
+def clean_no_ctx(bot: TravusBotBase, guild: Optional[discord.Guild], text: str, escape_markdown: bool = True) -> str:
+    """Cleans text, escaping mentions and markdown. Tries to change mentions to text. Works without context."""
+    message = SimpleNamespace(guild=guild, _state=None)
+    ctx = Context(message=message, bot=bot, prefix=None)
+    return clean(ctx, text, escape_markdown)
 
 
 def unembed_urls(text: str) -> str:
