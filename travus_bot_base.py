@@ -342,6 +342,12 @@ class TravusBotBase(Bot):
             self.log.info("Disconnected from Discord.")
             self.is_connected = 0  # Flag that the bot is currently disconnected from Discord.
 
+    async def on_resumed(self):
+        """Writes to console if bot reconnects to Discord."""
+        if not self.is_connected:  # If the bot was last disconnected, log reconnect to console.
+            self.log.info("Reconnected to Discord.")
+            self.is_connected = 1  # Flag that the bot is currently connected to Discord.
+
     async def on_command(self, ctx: Context):
         """Deletes command if command deletion is set."""
         if self.delete_messages and ctx.guild:  # If the message is in a server and the delete messages flag is true.
