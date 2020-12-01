@@ -39,6 +39,11 @@ def setup(bot: tbb.TravusBotBase):
     bot.add_command_help(CoreFunctionalityCog.command_hide, "Core", {"perms": ["Administrator"]}, ["module", "balance"])
     bot.add_command_help(CoreFunctionalityCog.about, "Core", None, ["", "fun"])
     bot.add_command_help(CoreFunctionalityCog.usage, "Core", None, ["", "dev"])
+    bot.add_command_help(CoreFunctionalityCog.config, "Core", {"perms": ["Administrator"]}, ["get", "set", "unset"])
+    bot.add_command_help(CoreFunctionalityCog.config_get, "Core", {"perms": ["Administrator"]}, ["alert_channel"])
+    bot.add_command_help(CoreFunctionalityCog.config_set, "Core", {"perms": ["Administrator"]},
+                         ["alert_channel 353246496952418305"])
+    bot.add_command_help(CoreFunctionalityCog.config_unset, "Core", {"perms": ["Administrator"]}, ["alert_channel"])
     bot.add_command_help(CoreFunctionalityCog.shutdown, "Core", None, ["", "1h", "1h30m", "10m-30s", "2m30s"])
 
 
@@ -482,6 +487,71 @@ class CoreFunctionalityCog(commands.Cog):
             if module_name not in [mod.replace('modules.', '') for mod in self.bot.extensions.keys()]:
                 response += "\nAdditionally no module with this name is loaded."
             await ctx.send(response)
+
+    @commands.has_permissions(administrator=True)
+    @commands.group(invoke_without_command=True, name="config", usage="<get/set/unset>")
+    async def config(self, ctx: commands.Context):
+        """This command is used to get, set and unset configuration options used by other modules or commands. All
+        config options are saves as strings. Converting them to the proper type is up to the module or command that
+        uses them. See the help text for the subcommands for more info."""
+        raise commands.BadArgument(f"No subcommand given for {ctx.command.name}.")
+
+    @commands.has_permissions(administrator=True)
+    @config.command(name="get", usage="<CONFIG_OPTION/all>")
+    async def config_get(self, ctx: commands.Context, option: str):
+        """This command is used to get the value of config options. Using this, one can check what configuration
+        options are set to. Using the keyword `all` instead of an option name will print all options and their
+        values."""
+        option = option.lower()
+        if option == "all":
+            if not self.bot.config:
+                await ctx.send("No configuration options are set.")
+                return
+            response = "\n".join([f"{key}: {value}" for key, value in self.bot.config.items()])
+            response = tbb.clean(ctx, response, False).replace('`', 'ˋ')
+            await ctx.send(f"```{response}```")
+        elif option.lower() in self.bot.config:
+            option = tbb.clean(ctx, option).replace('`', '\\`')
+            value = tbb.clean(ctx, self.bot.config[option], False).replace('`', 'ˋ')
+            await ctx.send(f"Option: `{option}`, value: `{value}`")
+        else:
+            option = tbb.clean(ctx, option).replace('`', 'ˋ')
+            await ctx.send(f"No configuration option `{tbb.clean(ctx, option, False)}` is set.")
+
+    @commands.has_permissions(administrator=True)
+    @config.command(name="set", usage="CONFIG_OPTION> <VALUE>")
+    async def config_set(self, ctx: commands.Context, option: str, *, value: str):
+        """This command sets a configuration option. Configuration options are used by other modules or commands.
+        Setting an option which already exists will overwrite the option. Setting an option which does not exist will
+        create it. The keyword all cannot be used as a configuration option as it is used by the get command to get all
+        options."""
+        option = option.lower()
+        if option == "all":
+            await ctx.send("The keyword `all` cannot be used as a configuration option.")
+        else:
+            self.bot.config[option] = value
+            async with self.bot.db.acquire() as conn:
+                await conn.execute("INSERT INTO config VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2",
+                                   option, value)
+            option = tbb.clean(ctx, option, False).replace('`', 'ˋ')
+            value = tbb.clean(ctx, value, False).replace('`', 'ˋ')
+            await ctx.send(f"Configuration option `{option}` has been set to `{value}`.")
+
+    @commands.has_permissions(administrator=True)
+    @config.command(name="unset", usage="<CONFIG_OPTION> <VALUE>")
+    async def config_unset(self, ctx: commands.Context, option: str):
+        """This command allows for the removal of configuration options. Removing configuration options which are
+        required by commands or modules will stop these from working."""
+        option = option.lower()
+        if option in self.bot.config:
+            del self.bot.config[option]
+            async with self.bot.db.acquire() as conn:
+                await conn.execute("DELETE FROM config WHERE key = $1", option)
+                option = tbb.clean(ctx, option, False).replace('`', 'ˋ')
+            await ctx.send(f"Configuration option `{option}` has been unset.")
+        else:
+            option = tbb.clean(ctx, option, False).replace('`', 'ˋ')
+            await ctx.send(f"No configuration option `{option}` exists.")
 
     @commands.is_owner()
     @commands.command(name="shutdown", aliases=["goodbye", "goodnight"], usage="(TIME BEFORE SHUTDOWN)")
