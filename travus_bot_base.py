@@ -243,6 +243,7 @@ class TravusBotBase(Bot):
         self.delete_messages: int = 1
         self.is_connected: int = 0
         self.help_command = self._CustomHelp()
+        self.config: Dict[str, str] = {}
 
     def get_bot_prefix(self) -> str:
         """Returns the current bot prefix, or a mention of the bot in text form followed by a space."""

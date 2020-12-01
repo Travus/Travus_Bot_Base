@@ -71,13 +71,14 @@ async def run():
             await conn.execute("CREATE TABLE IF NOT EXISTS default_modules(module VARCHAR PRIMARY KEY NOT NULL)")
             await conn.execute("CREATE TABLE IF NOT EXISTS command_states(command VARCHAR PRIMARY KEY NOT NULL, "
                                "state INTEGER NOT NULL)")
+            await conn.execute("CREATE TABLE IF NOT EXISTS config(key VARCHAR PRIMARY KEY NOT NULL, value VARCHAR)")
             await conn.execute("INSERT INTO settings VALUES ('additional_credits', '') ON CONFLICT (key) DO NOTHING")
             await conn.execute("INSERT INTO settings VALUES ('bot_description', '') ON CONFLICT (key) DO NOTHING")
             await conn.execute("INSERT INTO settings VALUES ('delete_messages', '0') ON CONFLICT (key) DO NOTHING")
             await conn.execute("INSERT INTO settings VALUES ('prefix', '!') ON CONFLICT (key) DO NOTHING")
         loaded_prefix = await db.fetchval("SELECT value FROM settings WHERE key = 'prefix'")
         delete_msgs = await conn.fetchval("SELECT value FROM settings WHERE key = 'delete_messages'")
-        default_modules = await conn.fetch("SELECT module FROM default_modules")
+        config = await conn.fetch("SELECT key, value FROM config")
 
     # Assign database pool, prefix, and message deletion flag as bot variables. Add help entry for help command.
     bot.db = db
@@ -102,6 +103,10 @@ async def run():
         log.critical(f"Error: Core functionality file failed to load.\n\nError:\n{e}")
         await db.close()
         exit(3)
+
+    # Load current config.
+    for key, value in [(pair["key"], pair["value"]) for pair in config]:
+        bot.config[key] = value
 
     bot.loop.create_task(load_default_modules(bot))
     log.info("Starting bot...")
