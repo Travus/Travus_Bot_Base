@@ -86,8 +86,35 @@ async def run():
     bot.add_command_help([com for com in bot.commands if com.name == "help"][0], "Core", None,
                          ["", "about", "help"])  # Add help info for help command.
 
-    # Load default modules.
+    try:  # Try loading core_commands.py file containing basic non-unloadable commands.
+        if "core_commands.py" in os.listdir("."):
+            bot.load_extension("core_commands")
+            await bot.update_command_states()  # Make sure commands are in the right state. (hidden, disabled)
+        else:
+            raise FileNotFoundError("Core commands file not found.")
+    except FileNotFoundError:  # If core_commands.py file is not found, error to console and shut down.
+        log.critical("Error: Core commands file not found.")
+        await db.close()
+        exit(4)
+    except Exception as e:  # If error is encountered in core_commands.py error to console and shut down.
+        if isinstance(e, commands.ExtensionNotFound):  # If import error, clarify error further.
+            e = e.__cause__
+        log.critical(f"Error: Core functionality file failed to load.\n\nError:\n{e}")
+        await db.close()
+        exit(3)
+
+    bot.loop.create_task(load_default_modules(bot))
+    log.info("Starting bot...")
+    await bot.start(discord_token)
+
+
+async def load_default_modules(bot_object: tbb.TravusBotBase):
+    """Load default modules once bot has cashed."""
+    async with bot_object.db.acquire() as conn:
+        default_modules = await conn.fetch("SELECT module FROM default_modules")
     default_modules = [mod["module"] for mod in default_modules]
+    await bot_object.wait_until_ready()  # Wait until object cashing is done.
+
     for mod in default_modules:  # Save module and help info before loading in case we need to roll back.
         old_help = dict(bot.help)
         old_modules = dict(bot.modules)
@@ -110,25 +137,6 @@ async def run():
         else:
             log.info(f"Default module '{mod}' loaded.")
     await bot.update_command_states()  # Make sure commands are in the right state. (hidden, disabled)
-
-    try:  # Try loading core_commands.py file containing basic non-unloadable commands.
-        if "core_commands.py" in os.listdir("."):
-            bot.load_extension("core_commands")
-        else:
-            raise FileNotFoundError("Core commands file not found.")
-    except FileNotFoundError:  # If core_commands.py file is not found, error to console and shut down.
-        log.critical("Error: Core commands file not found.")
-        await db.close()
-        exit(4)
-    except Exception as e:  # If error is encountered in core_commands.py error to console and shut down.
-        if isinstance(e, commands.ExtensionNotFound):  # If import error, clarify error further.
-            e = e.__cause__
-        log.critical(f"Error: Core functionality file failed to load.\n\nError:\n{e}")
-        await db.close()
-        exit(3)
-
-    log.info("Starting bot...")
-    await bot.start(discord_token)
 
 
 async def close():
