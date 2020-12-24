@@ -13,6 +13,16 @@ from discord.ext import commands
 from discord.ext.commands import Command, Cog, Bot, Context
 
 
+class DependencyError(commands.CommandError):
+    """Custom exception raised when modules are missing dependencies."""
+
+    def __init__(self, dependencies: List[str]):
+        """Initialization of DependencyError exception."""
+        self.message = f"Missing dependencies: {', '.join(dependencies)}"
+        self.missing_dependencies = dependencies
+        super().__init__(self.message)
+
+
 class ConfigError(commands.CommandError):
     """Custom exception raised when missing config options."""
 
@@ -274,6 +284,16 @@ class TravusBotBase(Bot):
             return self.prefix
         else:
             return f"@{self.user.display_name}#{self.user.discriminator} "
+
+    def check_dependencies(self, dependencies: List[str]):
+        """Checks if all dependencies are met. Raises DependencyError with the missing dependencies if not."""
+        if "core_commands" in dependencies and "core_commands" in self.extensions:  # core_commands is not in modules
+            dependencies.remove("core_commands")
+        for dependency in dependencies:
+            if f"modules.{dependency}" in self.extensions:
+                dependencies.remove(dependency)
+        if dependencies:
+            raise DependencyError(dependencies)
 
     def add_module(self, name: str, author: str, usage: Callable[[], Union[str, Embed]] = None,
                    description: str = None, additional_credits: str = None, image_link: str = None):
