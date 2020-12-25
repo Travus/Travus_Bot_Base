@@ -289,7 +289,7 @@ class TravusBotBase(Bot):
         """Checks if all dependencies are met. Raises DependencyError with the missing dependencies if not."""
         if "core_commands" in dependencies and "core_commands" in self.extensions:  # core_commands is not in modules
             dependencies.remove("core_commands")
-        for dependency in dependencies:
+        for dependency in list(dependencies):
             if f"modules.{dependency}" in self.extensions:
                 dependencies.remove(dependency)
         if dependencies:
