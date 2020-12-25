@@ -1,6 +1,7 @@
 import logging
 import os  # To check directory contents and make directories.
 from asyncio import sleep as asleep, get_event_loop
+from typing import List
 
 import asyncpg
 import requests
@@ -115,32 +116,56 @@ async def run():
 
 async def load_default_modules(bot_object: tbb.TravusBotBase):
     """Load default modules once bot has cashed."""
+
+    def load_module(default_list: List[str], module: str, propagate=False) -> bool:
+        """Attempt to load a module, and recursively attempts to loads dependencies."""
+        if module not in default_list:
+            return False
+        default_list.remove(module)
+
+        old_help = dict(bot.help)  # Save module and help info before loading in case we need to roll back.
+        old_modules = dict(bot.modules)
+        bot.extension_ctx = None
+        try:  # Try loading default module.
+            if f"{module}.py" in os.listdir("modules"):
+                bot.load_extension(f"modules.{module}")
+            else:
+                raise FileNotFoundError("Core commands file not found.")
+        except FileNotFoundError:  # If module wasn't found.
+            if propagate:
+                raise
+            bot.last_error = f"Default module '{module}' not found."
+            log.warning(f"Default module '{module}' not found.")
+            return False
+        except Exception as e:  # If en error was encountered while loading default module, roll back.
+            bot.help = old_help
+            bot.modules = old_modules
+            if propagate:
+                raise
+            if isinstance(e, commands.ExtensionFailed) and isinstance(e.original, tbb.DependencyError):
+                if all([load_module(default_list, dependency) for dependency in e.original.missing_dependencies]):
+                    try:
+                        default_list.append(module)
+                        if load_module(default_list, module, True):
+                            return True
+                    except Exception as ee:
+                        e = ee
+            if isinstance(e, commands.ExtensionNotFound):  # If import error, clarify further.
+                e = e.__cause__
+            log.error(f"Default module '{module}' encountered and error.\n\n{str(e)}")
+            bot.last_module_error = f"The `{module}` module failed while loading. The error was:\n\n{str(e)}"
+            return False
+        else:
+            log.info(f"Default module '{module}' loaded.")
+            return True
+
     async with bot_object.db.acquire() as conn:
         default_modules = await conn.fetch("SELECT module FROM default_modules")
     default_modules = [mod["module"] for mod in default_modules]
     await bot_object.wait_until_ready()  # Wait until object cashing is done.
 
-    for mod in default_modules:  # Save module and help info before loading in case we need to roll back.
-        old_help = dict(bot.help)
-        old_modules = dict(bot.modules)
-        bot.extension_ctx = None
-        try:  # Try loading default modules.
-            if f"{mod}.py" in os.listdir("modules"):
-                bot.load_extension(f"modules.{mod}")
-            else:
-                raise FileNotFoundError("Core commands file not found.")
-        except FileNotFoundError:  # If module wasn't found.
-            bot.last_error = f"Default module '{mod}' not found."
-            log.warning(f"Default module '{mod}' not found.")
-        except Exception as e:  # If en error was encountered while loading default module, roll back.
-            bot.help = old_help
-            bot.modules = old_modules
-            if isinstance(e, commands.ExtensionNotFound):  # If import error, clarify further.
-                e = e.__cause__
-            log.error(f"Default module '{mod}' encountered and error.\n\n{str(e)}")
-            bot.last_module_error = f"The `{mod}` module failed while loading. The error was:\n\n{str(e)}"
-        else:
-            log.info(f"Default module '{mod}' loaded.")
+    for mod in list(default_modules):
+        load_module(default_modules, mod)
     await bot.update_command_states()  # Make sure commands are in the right state. (hidden, disabled)
 
 
