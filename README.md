@@ -48,7 +48,7 @@ Here you can choose the bot's name, and profile image. You can also choose wheth
 Lastly, go back to the *General Information* page via the panel on the left. Take the 18 digit number listed as *CLIENT ID* from here, and insert it into the *Client ID* field on [this website](https://discordapi.com/permissions.html). Check the permissions you want to give your bot, and click the link it generates at the bottom of the page. Using this you can invite your bot to your server, as long as you have the manage server permission on it. You can later change these permissions by changing the role that Discord is going to create for your bot in the servers you add it to.
 
 **4: Download and Setup**  
-Now that you have set up the Discord side of the bot, you need to get the program that runs the bot ready. First download the code in this repository, either by using it as a template for a repository of your own which you then clone to your local computer, or by just downloading it directly and extracting it from the zip file GitHub gives you. Now open your terminal or command prompt and navigate into the folder you cloned or downloaded. Now, run one of the following commands depending on how you want to run the bot. (See note above requirements.)  
+Now that you have set up the Discord side of the bot, you need to get the program that runs the bot ready. First download the code in this repository, either by using it as a template for a repository of your own which you then clone to your local computer, or by just downloading it directly and extracting it from the zip file GitHub gives you. Now open your terminal or command prompt and navigate into the folder you cloned or downloaded. Then, run one of the following commands depending on how you want to run the bot. (See note above requirements.)  
 
 *Option A*:  
 `pip3 install -r setup_requirements.txt`  
@@ -70,7 +70,7 @@ To start the bot simply run `main.py` in Python 3.6 or newer.
 To stop the bot simply interrupt the program with `ctrl + c` or by closing the terminal.
 
 **6: Configure the Bot (Optional)**  
-How that you have started the bot, you can change its settings from inside Discord via bot commands. The settings you can change include; [changing the bot prefix](https://github.com/Travus/Travus_Bot_Base/wiki/Commands#changing-prefix), setting whether the bot should [delete command triggers or not](https://github.com/Travus/Travus_Bot_Base/wiki/Commands#deleting-command-triggers), and writing the [bot description and additional credit sections](https://github.com/Travus/Travus_Bot_Base/wiki/Commands#customize-bot-information) for the about command. For more information see the [command reference page](https://github.com/Travus/Travus_Bot_Base/wiki/Commands).  
+Now that you have started the bot, you can change its settings from inside Discord via bot commands. The settings you can change include; [changing the bot prefix](https://github.com/Travus/Travus_Bot_Base/wiki/Commands#changing-prefix), setting whether the bot should [delete command triggers or not](https://github.com/Travus/Travus_Bot_Base/wiki/Commands#deleting-command-triggers), and writing the [bot description and additional credit sections](https://github.com/Travus/Travus_Bot_Base/wiki/Commands#customize-bot-information) for the about command. For more information see the [command reference page](https://github.com/Travus/Travus_Bot_Base/wiki/Commands).  
 
 ---
 ### Contact & Credits
