@@ -67,40 +67,45 @@ class CoreFunctionalityCog(commands.Cog):
         old_help = dict(self.bot.help)  # Save old help and module info in we need to roll back.
         old_modules = dict(self.bot.modules)
         self.bot.extension_ctx = ctx  # Save context in case loaded module has use for it.
+        cleaned = clean(ctx, mod)
         try:
             if operation == "load":  # Try loading the module.
                 if f"{mod}.py" in listdir("modules"):  # Check if module is there to differentiate errors more easily.
                     self.bot.load_extension(f"modules.{mod}")
                     await self.bot.update_command_states()
-                    await ctx.send(f"Module `{clean(ctx, mod)}` successfully loaded.")
+                    await ctx.send(f"Module `{cleaned}` successfully loaded.")
                     self.log.info(f"{ctx.message.author.id}: loaded '{mod}' module.")
                 else:
-                    await ctx.send(f"No `{clean(ctx, mod)}` module was found.")
+                    await ctx.send(f"No `{cleaned}` module was found.")
             elif operation == "unload":
                 self.bot.unload_extension(f"modules.{mod}")
-                await ctx.send(f"Module `{clean(ctx, mod)}` successfully unloaded.")
+                await ctx.send(f"Module `{cleaned}` successfully unloaded.")
                 self.log.info(f"[{tbb.cur_time()}] {ctx.message.author.id}: unloaded '{mod}' module.")
             elif operation == "reload":  # Try reloading the module.
                 if f"{mod}.py" in listdir("modules"):  # Check if module is even still there before we reload.
                     self.bot.reload_extension(f"modules.{mod}")
                     await self.bot.update_command_states()
-                    await ctx.send(f"Module `{clean(ctx, mod)}` successfully reloaded.")
+                    await ctx.send(f"Module `{cleaned}` successfully reloaded.")
                     self.log.info(f"[{tbb.cur_time()}] {ctx.message.author.id}: reloaded '{mod}' module.")
                 else:
                     if mod in self.bot.modules:
-                        await ctx.send(f"The `{clean(ctx, mod)}` module file is no longer found on disk. "
+                        await ctx.send(f"The `{cleaned}` module file is no longer found on disk. "
                                        f"Reload canceled.")
                     else:
-                        await ctx.send(f"No `{clean(ctx, mod)}` module was found.")
+                        await ctx.send(f"No `{cleaned}` module was found.")
         except commands.ExtensionAlreadyLoaded:  # If module was already loaded.
-            await ctx.send(f"The `{clean(ctx, mod)}` module was already loaded.")
+            await ctx.send(f"The `{cleaned}` module was already loaded.")
         except commands.ExtensionNotLoaded:  # If module wasn't loaded to begin with.
-            await ctx.send(f"No `{clean(ctx, mod)}` module is loaded.")
+            await ctx.send(f"No `{cleaned}` module is loaded.")
         except Exception as e:  # If module crashed while loading, restore old help and module info.
             self.bot.help = old_help
             self.bot.modules = old_modules
-            await ctx.send("**Error! Something went really wrong! Contact module maintainer.**\n"
-                           "Error logged to console and stored in module error command.")
+            if isinstance(e, commands.ExtensionFailed) and isinstance(e.original, tbb.DependencyError):
+                missing_deps = clean(ctx, ", ".join([f"`{elem}`" for elem in e.original.missing_dependencies]), False)
+                await ctx.send(f"Module `{cleaned}` requires these missing dependencies: {missing_deps}")
+            else:
+                await ctx.send("**Error! Something went really wrong! Contact module maintainer.**\n"
+                               "Error logged to console and stored in module error command.")
             if isinstance(e, commands.ExtensionNotFound):  # Clarify error further in case it was an import error.
                 e = e.__cause__
             self.log.error(f"{ctx.message.author.id}: tried loading '{mod}' module, and it failed:\n\n{str(e)}")
