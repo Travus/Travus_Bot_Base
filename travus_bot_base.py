@@ -472,9 +472,11 @@ class TravusBotBase(Bot):
                         command.enabled = False
                         command.hidden = True
 
-    def add_command_help(self, command: Command, category: str = "no category",
-                         restrictions: Dict[str, Union[bool, List[str], str]] = None, examples: List[str] = None):
-        """Function that is used to add help info to the bot correctly. Used to minimize developmental errors."""
+    def add_command_help(self, command, category: str = "no category",
+                         restrictions: Dict[str, Union[List[str], str]] = None, examples: List[str] = None):
+        """Function that is used to add help info to the bot correctly. Used to minimize developmental errors. Command
+        should be either a command or a command group."""
+        # Command is currently not typed due to type checking issues in PyCharm, should be Command.
         self.help[command.qualified_name] = self._HelpInfo(self.get_bot_prefix, command, category, restrictions,
                                                            examples)
 
