@@ -1,7 +1,9 @@
 import datetime  # To get current time.
 import logging
+import os
+from asyncio import sleep as asleep
 from copy import copy  # To copy context in help command.
-from re import compile, findall  # Regex functions used in clean function for detecting mentions.
+from re import compile as re_cmp, findall  # Regex functions used in clean function for detecting mentions.
 from types import SimpleNamespace
 from typing import Dict, Iterable, List, Union, Optional, Callable, Type  # For type-hinting.
 
@@ -44,6 +46,28 @@ def required_config(requirements: Iterable[str]):
             raise ConfigError(f"Command {predicate_ctx.command.qualified_name} missing config options: {missing}")
         return not missing
     return commands.check(predicate)
+
+
+class DatabaseCredentials:
+    """Class that holds database credentials."""
+
+    def __init__(self, user: str, password: str, host: str, port: str, database: str):
+        """Initialization function for HelpInfo class."""
+        self._user = user
+        self._password = password
+        self._host = host
+        self._port = port
+        self._database = database
+
+    def get_credentials(self) -> Dict[str, str]:
+        """Returns a dictionary mapping from user, password, host, port and database to the respective values."""
+        return {
+            "user": self._user,
+            "password": self._password,
+            "host": self._host,
+            "port": self._port,
+            "database": self._database
+        }
 
 
 class GlobalChannel(commands.Converter):
@@ -262,21 +286,129 @@ class TravusBotBase(Bot):
             """Function that returns content of error when command not found."""
             return f"No command called `{string}` found."
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, db_credentials: DatabaseCredentials, *args, **kwargs):
         """Initialization function loading all necessary information for TravusBotBase class."""
         super().__init__(*args, **kwargs)
         self.log = BOT_LOG
-        self.db: Optional[asyncpg.pool.Pool] = None
         self.last_module_error: Optional[str] = None
         self.last_error: Optional[str] = None
         self.extension_ctx: Optional[Context] = None
         self.help: Dict[str, TravusBotBase._HelpInfo] = {}
         self.modules: Dict[str, TravusBotBase._ModuleInfo] = {}
-        self.prefix: Optional[str] = None
-        self.delete_messages: int = 1
         self.is_connected: int = 0
         self.help_command = self._CustomHelp()
         self.config: Dict[str, str] = {}
+        self.loop.run_until_complete(self._db_connect(db_credentials))
+        self.loop.run_until_complete(self._load_db_options())
+        self.loop.run_until_complete(self._load_default_commands())
+        self.loop.create_task(self._load_default_modules())  # Waits for bot to be ready, only completes after __init__
+
+    async def _db_connect(self, credentials: DatabaseCredentials, retries: int = 5):
+        """Attempt to connect to database."""
+        while retries:
+            try:
+                db_pool = await asyncpg.create_pool(**credentials.get_credentials())
+                self.db: asyncpg.pool.Pool = db_pool
+                break
+            except asyncpg.exceptions.InvalidCatalogNameError:
+                self.log.error("Error: Failed to connect to database. Database name not found.")
+                retries -= 1
+                await asleep(5)
+            except asyncpg.exceptions.InvalidPasswordError:
+                self.log.error("Error: Failed to connect to database. Username or password incorrect.")
+                retries -= 1
+                await asleep(5)
+            except OSError:
+                self.log.error("Error: Failed to connect to database. Connection error.")
+                retries -= 1
+                await asleep(5)
+            except Exception as e:
+                self.log.error(f"Error: {e}")
+                retries -= 1
+                await asleep(5)
+        if not retries:
+            self.log.critical("Failed to connect to database.")
+            exit(1)
+
+    async def _load_db_options(self):
+        """Create, set up and query database for info. Create default values if database is empty."""
+        async with self.db.acquire() as conn:
+            async with conn.transaction():
+                await conn.execute(
+                    "CREATE TABLE IF NOT EXISTS settings(key VARCHAR PRIMARY KEY NOT NULL, value VARCHAR)")
+                await conn.execute("CREATE TABLE IF NOT EXISTS default_modules(module VARCHAR PRIMARY KEY NOT NULL)")
+                await conn.execute("CREATE TABLE IF NOT EXISTS command_states(command VARCHAR PRIMARY KEY NOT NULL, "
+                                   "state INTEGER NOT NULL)")
+                await conn.execute("CREATE TABLE IF NOT EXISTS config(key VARCHAR PRIMARY KEY NOT NULL, value VARCHAR)")
+                await conn.execute(
+                    "INSERT INTO settings VALUES ('additional_credits', '') ON CONFLICT (key) DO NOTHING")
+                await conn.execute("INSERT INTO settings VALUES ('bot_description', '') ON CONFLICT (key) DO NOTHING")
+                await conn.execute("INSERT INTO settings VALUES ('delete_messages', '0') ON CONFLICT (key) DO NOTHING")
+                await conn.execute("INSERT INTO settings VALUES ('prefix', '!') ON CONFLICT (key) DO NOTHING")
+            loaded_prefix = await self.db.fetchval("SELECT value FROM settings WHERE key = 'prefix'")
+            delete_msgs = await conn.fetchval("SELECT value FROM settings WHERE key = 'delete_messages'")
+            config = await conn.fetch("SELECT key, value FROM config")
+
+        self.prefix: Optional[str] = loaded_prefix or None
+        self.delete_messages: int = int(delete_msgs) if delete_msgs is not None else 1
+        self.add_command_help([com for com in self.commands if com.name == "help"][0], "Core", None,
+                              ["", "about", "help"])  # Add help info for help command.
+        for key, value in [(pair["key"], pair["value"]) for pair in config]:
+            self.config[key] = value
+
+    async def _load_default_commands(self):
+        """Load the default commands from core_commands.py"""
+        try:
+            if "core_commands.py" in os.listdir("."):
+                self.load_extension("core_commands")
+                await self.update_command_states()
+            else:
+                raise FileNotFoundError("Core commands file not found.")
+        except FileNotFoundError:
+            self.log.critical("Error: Core commands file not found.")
+            await self.db.close()
+            exit(4)
+        except Exception as e:
+            if isinstance(e, commands.ExtensionNotFound):
+                e = e.__cause__
+            self.log.critical(f"Error: Core functionality file failed to load.\n\nError:\n{e}")
+            await self.db.close()
+            exit(3)
+
+    async def _load_default_modules(self):
+        """Load default modules once bot has cashed."""
+        async with self.db.acquire() as conn:
+            default_modules = await conn.fetch("SELECT module FROM default_modules")
+        default_modules = [mod["module"] for mod in default_modules]
+        await self.wait_until_ready()
+
+        for mod in default_modules:
+            old_help = dict(self.help)  # Save module and help info before loading in case we need to roll back.
+            old_modules = dict(self.modules)
+            self.extension_ctx = None
+            try:
+                if f"{mod}.py" in os.listdir("modules"):
+                    self.load_extension(f"modules.{mod}")
+                else:
+                    raise FileNotFoundError("Core commands file not found.")
+            except FileNotFoundError:
+                self.last_error = f"Default module '{mod}' not found."
+                self.log.warning(f"Default module '{mod}' not found.")
+            except Exception as e:
+                self.help = old_help
+                self.modules = old_modules
+                if isinstance(e, commands.ExtensionNotFound):
+                    e = e.__cause__
+                self.log.error(f"Default module '{mod}' encountered and error.\n\n{str(e)}")
+                self.last_module_error = f"The `{mod}` module failed while loading. The error was:\n\n{str(e)}"
+            else:
+                self.log.info(f"Default module '{mod}' loaded.")
+        await self.update_command_states()
+
+    async def close(self):
+        """Coses the bot and the database connections."""
+        await self.db.close()
+        await super().close()
 
     def get_bot_prefix(self) -> str:
         """Returns the current bot prefix, or a mention of the bot in text form followed by a space."""
