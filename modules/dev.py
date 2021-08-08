@@ -29,6 +29,7 @@ def setup(bot: tbb.TravusBotBase):
     bot.add_command_help(DevCog.channelids, "Dev", {"perms": ["Manage Channels"]},
                          ["all bot_room", "all dm", "general"])
     bot.add_command_help(DevCog.lasterror, "Dev", {"perms": ["Manage Server"]}, [""])
+    bot.add_command_help(DevCog.ping, "Dev", None, [""])
 
 
 def teardown(bot: tbb.TravusBotBase):
@@ -216,3 +217,9 @@ class DevCog(commands.Cog):
             await ctx.send(tbb.clean(ctx, self.bot.last_error))
         else:
             await ctx.send("There have not been any errors since the last restart.")
+
+    @commands.command(name="ping")
+    async def ping(self, ctx: commands.Context):
+        """This command shows the latency from the bot to Discord's servers. Can be used to check if the bot is
+        responsive."""
+        await ctx.send(f"Pong! ({round(self.bot.latency * 1000, 2)}ms)")
