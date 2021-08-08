@@ -129,7 +129,10 @@ class CoreFunctionalityCog(commands.Cog):
         words or a combination of the two, and can even include spaces, though they cannot start or end with spaces
         since Discord removes empty space at the start and end of messages. The prefix is saved across reboots. Setting
         the prefix to `remove` will remove the prefix. The bot will always listen to pings as if they were a prefix,
-        regardless of if there is another prefix set or not."""
+        regardless of if there is another prefix set or not. Maximum prefix length is 20."""
+        if len(new_prefix) > 20:
+            await ctx.send("The maximum prefix length is 20.")
+            return
         self.bot.prefix = new_prefix if new_prefix.lower() != "remove" else None  # If 'remove', prefix is set to None.
         activity = Activity(type=ActivityType.listening,
                             name=f"prefix: {new_prefix}" if new_prefix.lower() != "remove" else "pings only")
