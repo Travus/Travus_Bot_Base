@@ -10,7 +10,20 @@ from typing import Dict, Iterable, List, Union, Optional, Callable, Type  # For 
 import asyncpg
 import discord
 from aiohttp import ClientConnectorError as CCError  # To detect connection errors.
-from discord import utils, Forbidden, Embed, Message, User, Member, TextChannel, VoiceChannel, CategoryChannel
+from discord import (
+    utils,
+    Forbidden,
+    Embed,
+    Message,
+    User,
+    Member,
+    TextChannel,
+    VoiceChannel,
+    CategoryChannel,
+    StoreChannel,
+    StageChannel,
+    GroupChannel,
+)
 from discord.ext import commands
 from discord.ext.commands import Command, Cog, Bot, Context
 
@@ -72,50 +85,56 @@ class DatabaseCredentials:
 
 class GlobalChannel(commands.Converter):
     """Custom converter that returns user, or channel be it in the current server or another."""
-    id = None
-    name = None
 
-    async def convert(self, ctx: Context, channel: str) -> Union[TextChannel, VoiceChannel, User]:
+    async def convert(
+            self, ctx: Context, channel: str
+    ) -> Union[TextChannel, VoiceChannel, StoreChannel, StageChannel, CategoryChannel, GroupChannel, User]:
         """Converter method used by discord.py."""
+        if isinstance(channel, str) and channel.lower() in ["here", "."]:
+            return ctx.channel  # Get current channel if asked for.
         if isinstance(channel, str) and channel.lower() in ["dm", "dms", "pm", "pms"]:
             return ctx.message.author  # Get DM channel if asked for.
         try:
             return await commands.UserConverter().convert(ctx, channel)
-        except commands.BadArgument:
-            try:
-                return await commands.TextChannelConverter().convert(ctx, channel)
-            except commands.BadArgument:  # Channel not in server.
-                try:
-                    converted = ctx.bot.get_channel(int(channel))
-                    if converted is None:
-                        raise commands.UserInputError("Could not identify channel.")
-                    return converted
-                except ValueError:
-                    raise commands.UserInputError("Could not identify channel.")
+        except commands.UserNotFound:
+            pass
+        try:
+            return await commands.TextChannelConverter().convert(ctx, channel)
+        except commands.ChannelNotFound:  # Channel not in server.
+            pass
+        try:
+            converted = ctx.bot.get_channel(int(channel))
+            if converted is None:
+                raise commands.UserInputError("Could not identify channel.")
+            return converted
+        except ValueError:
+            raise commands.UserInputError("Could not identify channel.")
 
 
 class GlobalTextChannel(commands.Converter):
     """Custom converter that returns user, or text channel be it in the current server or another."""
-    id = None
-    name = None
 
-    async def convert(self, ctx: Context, text_channel: str) -> Union[TextChannel, User]:
+    async def convert(self, ctx: Context, text_channel: str) -> Union[TextChannel, GroupChannel, User]:
         """Converter method used by discord.py."""
+        if isinstance(text_channel, str) and text_channel.lower() in ["here", "."]:
+            return ctx.channel  # Get current channel if asked for.
         if isinstance(text_channel, str) and text_channel.lower() in ["dm", "dms", "pm", "pms"]:
             return ctx.message.author  # Get DM channel if asked for.
         try:
             return await commands.UserConverter().convert(ctx, text_channel)
-        except commands.BadArgument:
-            try:
-                return await commands.TextChannelConverter().convert(ctx, text_channel)
-            except commands.BadArgument:  # Channel not in server.
-                try:
-                    converted = ctx.bot.get_channel(int(text_channel))
-                    if not converted or isinstance(converted, VoiceChannel) or isinstance(converted, CategoryChannel):
-                        raise commands.UserInputError("Could not identify text channel.")
-                    return converted
-                except ValueError:
-                    raise commands.UserInputError("Could not identify text channel.")
+        except commands.UserNotFound:
+            pass
+        try:
+            return await commands.TextChannelConverter().convert(ctx, text_channel)
+        except commands.ChannelNotFound:  # Channel not in server.
+            pass
+        try:
+            converted = ctx.bot.get_channel(int(text_channel))
+            if not converted or not isinstance(converted, (TextChannel, GroupChannel, User)):
+                raise commands.UserInputError("Could not identify text channel.")
+            return converted
+        except ValueError:
+            raise commands.UserInputError("Could not identify text channel.")
 
 
 class TravusBotBase(Bot):
