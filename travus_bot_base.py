@@ -504,15 +504,19 @@ class TravusBotBase(Bot):
         errors."""
         if isinstance(command, list):  # Remove all in list, if list is passed.
             for com in command:
-                if com.qualified_name in self.help.keys():
-                    del self.help[com.qualified_name if isinstance(com, Command) else com]
+                name = com.qualified_name if isinstance(com, Command) else com
+                if name in self.help:
+                    del self.help[name]
         elif isinstance(command, Command):  # Remove single if only one is passed.
-            if command.qualified_name in self.help.keys():
+            if command.qualified_name in self.help:
                 del self.help[command.qualified_name if isinstance(command, Command) else command]
         elif isinstance(command, Cog):
             for com in command.walk_commands():
-                if com.qualified_name in self.help.keys():
+                if com.qualified_name in self.help:
                     del self.help[com.qualified_name]
+        elif isinstance(command, str):
+            if command in self.help:
+                del self.help[command]
 
     async def on_ready(self):
         """This function runs every time the bot connects to Discord. This happens multiple times.
