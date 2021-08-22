@@ -67,50 +67,45 @@ class CoreFunctionalityCog(commands.Cog):
         old_help = dict(self.bot.help)  # Save old help and module info in we need to roll back.
         old_modules = dict(self.bot.modules)
         self.bot.extension_ctx = ctx  # Save context in case loaded module has use for it.
-        cleaned = clean(ctx, mod)
+        mod_name = clean(ctx, mod, False, True)
         try:
             if operation == "load":  # Try loading the module.
                 if f"{mod}.py" in listdir("modules"):  # Check if module is there to differentiate errors more easily.
                     self.bot.load_extension(f"modules.{mod}")
                     await self.bot.update_command_states()
-                    await ctx.send(f"Module `{cleaned}` successfully loaded.")
-                    self.log.info(f"{ctx.message.author.id}: loaded '{mod}' module.")
+                    await ctx.send(f"Module `{mod_name}` successfully loaded.")
+                    self.log.info(f"{ctx.author.id}: loaded '{mod}' module.")
                 else:
-                    await ctx.send(f"No `{cleaned}` module was found.")
+                    await ctx.send(f"No `{mod_name}` module was found.")
             elif operation == "unload":
                 self.bot.unload_extension(f"modules.{mod}")
-                await ctx.send(f"Module `{cleaned}` successfully unloaded.")
-                self.log.info(f"[{tbb.cur_time()}] {ctx.message.author.id}: unloaded '{mod}' module.")
+                await ctx.send(f"Module `{mod_name}` successfully unloaded.")
+                self.log.info(f"{ctx.author.id}: unloaded '{mod}' module.")
             elif operation == "reload":  # Try reloading the module.
                 if f"{mod}.py" in listdir("modules"):  # Check if module is even still there before we reload.
                     self.bot.reload_extension(f"modules.{mod}")
                     await self.bot.update_command_states()
-                    await ctx.send(f"Module `{cleaned}` successfully reloaded.")
-                    self.log.info(f"[{tbb.cur_time()}] {ctx.message.author.id}: reloaded '{mod}' module.")
+                    await ctx.send(f"Module `{mod_name}` successfully reloaded.")
+                    self.log.info(f"{ctx.author.id}: reloaded '{mod}' module.")
                 else:
                     if mod in self.bot.modules:
-                        await ctx.send(f"The `{cleaned}` module file is no longer found on disk. "
-                                       f"Reload canceled.")
+                        await ctx.send(f"The `{mod_name}` module file is no longer found on disk. Reload canceled.")
                     else:
-                        await ctx.send(f"No `{cleaned}` module was found.")
+                        await ctx.send(f"No `{mod_name}` module was found.")
         except commands.ExtensionAlreadyLoaded:  # If module was already loaded.
-            await ctx.send(f"The `{cleaned}` module was already loaded.")
+            await ctx.send(f"The `{mod_name}` module was already loaded.")
         except commands.ExtensionNotLoaded:  # If module wasn't loaded to begin with.
-            await ctx.send(f"No `{cleaned}` module is loaded.")
+            await ctx.send(f"No `{mod_name}` module is loaded.")
         except Exception as e:  # If module crashed while loading, restore old help and module info.
             self.bot.help = old_help
             self.bot.modules = old_modules
-            if isinstance(e, commands.ExtensionFailed) and isinstance(e.original, tbb.DependencyError):
-                missing_deps = clean(ctx, ", ".join([f"`{elem}`" for elem in e.original.missing_dependencies]), False)
-                await ctx.send(f"Module `{cleaned}` requires these missing dependencies: {missing_deps}")
-            else:
-                await ctx.send("**Error! Something went really wrong! Contact module maintainer.**\n"
-                               "Error logged to console and stored in module error command.")
+            await ctx.send("**Error! Something went really wrong! Contact module maintainer.**\n"
+                           "Error logged to console and stored in module error command.")
             if isinstance(e, commands.ExtensionNotFound):  # Clarify error further in case it was an import error.
                 e = e.__cause__
-            self.log.error(f"{ctx.message.author.id}: tried loading '{mod}' module, and it failed:\n\n{str(e)}")
-            self.bot.last_module_error = f"The `{clean(ctx, mod)}` module failed while loading. The error was:" \
-                                         f"\n\n{clean(ctx, str(e))}"
+            self.log.error(f"{ctx.author.id}: tried loading '{mod}' module, and it failed:\n\n{str(e)}")
+            self.bot.last_module_error = (f"The `{clean(ctx, mod, False)}` module failed while loading. The error was:"
+                                          f"\n\n{clean(ctx, str(e))}")
         finally:  # Reset context as loading has concluded.
             self.bot.extension_ctx = None
 
@@ -312,11 +307,11 @@ class CoreFunctionalityCog(commands.Cog):
             try:
                 async with self.bot.db.acquire() as conn:
                     await conn.execute("INSERT INTO default_modules VALUES ($1)", mod)
-                    await ctx.send(f"The `{clean(ctx, mod)}` module is now a default module.")
+                    await ctx.send(f"The `{clean(ctx, mod, False, True)}` module is now a default module.")
             except IntegrityConstraintViolationError:
-                await ctx.send(f"The `{clean(ctx, mod)}` module is already a default module.")
+                await ctx.send(f"The `{clean(ctx, mod, False, True)}` module is already a default module.")
         else:
-            await ctx.send(f"No `{clean(ctx, mod)}` module was found.")
+            await ctx.send(f"No `{clean(ctx, mod, False, True)}` module was found.")
 
     @commands.is_owner()
     @default.command(name="remove", usage="<MODULE NAME>")
@@ -329,9 +324,9 @@ class CoreFunctionalityCog(commands.Cog):
             result = await conn.fetchval("SELECT module FROM default_modules WHERE module = $1", mod)
             if result:
                 await conn.execute("DELETE FROM default_modules WHERE module = $1", mod)
-                await ctx.send(f"Removed `{clean(ctx, mod)}` module from default modules.")
+                await ctx.send(f"Removed `{clean(ctx, mod, False, True)}` module from default modules.")
             else:
-                await ctx.send(f"No `{clean(ctx, mod)}` module in default modules.")
+                await ctx.send(f"No `{clean(ctx, mod, False, True)}` module in default modules.")
 
     @commands.has_permissions(administrator=True)
     @commands.group(invoke_without_command=True, name="command", aliases=["commands"],
@@ -541,9 +536,10 @@ class CoreFunctionalityCog(commands.Cog):
             async with self.bot.db.acquire() as conn:
                 await conn.execute("INSERT INTO config VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2",
                                    option, value)
-            option = tbb.clean(ctx, option, False).replace('`', 'ˋ')
-            value = tbb.clean(ctx, value, False).replace('`', 'ˋ')
-            await ctx.send(f"Configuration option `{option}` has been set to `{value}`.")
+            option = tbb.clean(ctx, option, False, True)
+            value = tbb.clean(ctx, value, False, True)
+            line = f"Configuration option `{option}` has been set to `{value}`."
+            await ctx.send(line if len(line) < 2000 else f"{line[:1996]}...")
 
     @commands.has_permissions(administrator=True)
     @config.command(name="unset", usage="<CONFIG_OPTION> <VALUE>")
