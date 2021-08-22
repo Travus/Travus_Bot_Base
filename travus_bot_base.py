@@ -653,7 +653,7 @@ async def del_message(msg: Message):
             BOT_LOG.warning("Bot does not have required permissions to delete message.")
 
 
-def clean(ctx: Context, text: str, escape_markdown: bool = True) -> str:
+def clean(ctx: Context, text: str, escape_markdown: bool = True, replace_backticks: bool = False) -> str:
     """Cleans text, escaping mentions and markdown. Tries to change mentions to text."""
     transformations = {}
 
@@ -690,14 +690,22 @@ def clean(ctx: Context, text: str, escape_markdown: bool = True) -> str:
     result = pattern.sub(repl, text)
     if escape_markdown:
         result = utils.escape_markdown(result)
+    if replace_backticks:
+        result = result.replace("`", "ˋ")
     return utils.escape_mentions(result)
 
 
-def clean_no_ctx(bot: TravusBotBase, guild: Optional[discord.Guild], text: str, escape_markdown: bool = True) -> str:
+def clean_no_ctx(
+        bot: TravusBotBase,
+        guild: Optional[discord.Guild],
+        text: str,
+        escape_markdown: bool = True,
+        replace_backticks: bool = False
+) -> str:
     """Cleans text, escaping mentions and markdown. Tries to change mentions to text. Works without context."""
     message = SimpleNamespace(guild=guild, _state=None)
     ctx = Context(message=message, bot=bot, prefix=None)
-    return clean(ctx, text, escape_markdown)
+    return clean(ctx, text, escape_markdown, replace_backticks)
 
 
 def unembed_urls(text: str) -> str:
