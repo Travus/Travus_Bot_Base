@@ -93,7 +93,7 @@ class GlobalChannel(commands.Converter):
         if isinstance(channel, str) and channel.lower() in ["here", "."]:
             return ctx.channel  # Get current channel if asked for.
         if isinstance(channel, str) and channel.lower() in ["dm", "dms", "pm", "pms"]:
-            return ctx.message.author  # Get DM channel if asked for.
+            return ctx.author  # Get DM channel if asked for.
         try:
             return await commands.UserConverter().convert(ctx, channel)
         except commands.UserNotFound:
@@ -119,7 +119,7 @@ class GlobalTextChannel(commands.Converter):
         if isinstance(text_channel, str) and text_channel.lower() in ["here", "."]:
             return ctx.channel  # Get current channel if asked for.
         if isinstance(text_channel, str) and text_channel.lower() in ["dm", "dms", "pm", "pms"]:
-            return ctx.message.author  # Get DM channel if asked for.
+            return ctx.author  # Get DM channel if asked for.
         try:
             return await commands.UserConverter().convert(ctx, text_channel)
         except commands.UserNotFound:
@@ -210,7 +210,7 @@ class TravusBotBase(Bot):
             embed = Embed(colour=discord.Color(0x4a4a4a), description=desc if len(desc) < 1950 else f"{desc[:1949]}...",
                           timestamp=datetime.datetime.utcnow())
             embed.set_author(name=self.name)
-            embed.set_footer(text=ctx.message.author.display_name, icon_url=ctx.message.author.avatar_url)
+            embed.set_footer(text=ctx.author.display_name, icon_url=ctx.author.avatar_url)
             if self.image:
                 embed.set_thumbnail(url=self.image)
             if not self.credits:
@@ -568,24 +568,24 @@ class TravusBotBase(Bot):
                                f"{ctx.command.full_parent_name + ' ' if ctx.command.full_parent_name else ''}"
                                f"{ctx.invoked_with} {ctx.command.usage or ''}`")
         elif isinstance(error, commands.NotOwner):  # Log to console.
-            self.log.warning(f'{ctx.message.author.id}: Command "{ctx.command}" requires bot owner status')
+            self.log.warning(f'{ctx.author.id}: Command "{ctx.command}" requires bot owner status')
         elif isinstance(error, commands.MissingPermissions):  # Log to console.
-            self.log.warning(f'{ctx.message.author.id}: Command "{ctx.command}" requires additional permissions: '
+            self.log.warning(f'{ctx.author.id}: Command "{ctx.command}" requires additional permissions: '
                              f'{", ".join(error.missing_perms)}')
         elif isinstance(error, commands.MissingRole):  # Log to console.
-            self.log.warning(f'{ctx.message.author.id}: Command "{ctx.command}" requires role: {error.missing_role}')
+            self.log.warning(f'{ctx.author.id}: Command "{ctx.command}" requires role: {error.missing_role}')
         elif isinstance(error, commands.MissingAnyRole):  # Log to console.
-            self.log.warning(f'{ctx.message.author.id}: Command "{ctx.command}" requires role: '
+            self.log.warning(f'{ctx.author.id}: Command "{ctx.command}" requires role: '
                              f'{" or ".join(error.missing_roles)}')
         elif isinstance(error, commands.CommandNotFound):  # Log to console.
-            self.log.warning(f'{ctx.message.author.id}: {error}')
+            self.log.warning(f'{ctx.author.id}: {error}')
         elif isinstance(error, CCError):  # Log to console if message wasn't properly sent to Discord.
-            self.log.warning(f'{ctx.message.author.id}: Connection error to Discord. Message lost.')
+            self.log.warning(f'{ctx.author.id}: Connection error to Discord. Message lost.')
         elif isinstance(error.__cause__, Forbidden):  # Log to console if lacking permissions.
-            self.log.warning(f'{ctx.message.author.id}: Missing permissions.')
+            self.log.warning(f'{ctx.author.id}: Missing permissions.')
         elif error is not None:  # Log error to console.
-            self.log.warning(f'{ctx.message.author.id}: {error}')
-        self.last_error = f'[{cur_time()}] {ctx.message.author.id}: {error}'
+            self.log.warning(f'{ctx.author.id}: {error}')
+        self.last_error = f'[{cur_time()}] {ctx.author.id}: {error}'
 
 
 def parse_time(duration: str, minimum: int = None, maximum: int = None, error_on_exceeded: bool = True) -> int:
