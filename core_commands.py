@@ -582,5 +582,5 @@ class CoreFunctionalityCog(commands.Cog):
                     await ctx.send("The time for this command must be between 0 seconds to 24 hours.")
                 else:  # If another error is encountered, log to console.
                     await ctx.send("The time could not be parsed correctly.")
-                    self.log.error(f"{ctx.message.author.id}: {str(e)}")
-                    self.bot.last_error = f"{ctx.message.author.id}: {str(e)}"
+                    self.log.error(f"{ctx.author.id}: {str(e)}")
+                    self.bot.last_error = f"{ctx.author.id}: {str(e)}"
