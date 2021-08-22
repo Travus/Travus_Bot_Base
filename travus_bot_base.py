@@ -52,7 +52,7 @@ def required_config(requirements: Iterable[str]):
 
     async def predicate(predicate_ctx: Context) -> bool:
         missing = [f"`{requirement}`" for requirement in requirements if requirement not in predicate_ctx.bot.config]
-        missing = ", ".join(missing)
+        missing = ", ".join(missing)[:1850]
         if missing:
             await predicate_ctx.send(f"This command requires the following missing configuration options to be set: "
                                      f"{missing}.\nPlease contact an administrator for assistance.")
@@ -168,12 +168,12 @@ class TravusBotBase(Bot):
 
         def make_help_embed(self, ctx: Context) -> Embed:
             """Creates embeds for command based on info stored in class."""
-            desc = f"Category: {self.category.title()}\n\n{self.description}"
-            embed = Embed(colour=discord.Color(0x4a4a4a), description=desc if len(desc) < 1950 else f"{desc[:1949]}...",
-                          timestamp=datetime.datetime.utcnow())
-            embed.set_author(name=f"{self.name.title()} Command")
+            embed = Embed(colour=discord.Color(0x4a4a4a), timestamp=datetime.datetime.utcnow())
+            description = f"Category: {self.category.title()}\n\n{self.description}"
+            embed.description = description if len(description) < 4097 else f"{description[:4092]}..."
+            embed.set_author(name=f"{self.name.title()} Command"[:255])
             aliases = "\n".join(sorted(self.aliases))  # Make and add aliases blurb.
-            embed.add_field(name="Aliases", value=f"```\n{aliases}```", inline=True)
+            embed.add_field(name="Aliases", value=f"```\n{aliases[:1017]}```", inline=True)
             restrictions = "Bot Owner Only: Yes\n" if self.owner_only else ""  # Make and add restrictions blurb.
             restrictions += "DM Only: Yes\n" if self.dm_only else ""
             restrictions += "" if self.dm_only else "Server Only: Yes" if self.guild_only else "Server Only: No"
@@ -182,11 +182,16 @@ class TravusBotBase(Bot):
             restrictions += (("\nAny role of:\n" + "\n".join([f"   {role}" for role in self.roles]))
                              if self.roles else "")
             restrictions += f"\n{self.other_restrictions}" if self.other_restrictions else ""
-            embed.add_field(name="Restrictions", value=f"```{restrictions}```", inline=True)
+            embed.add_field(name="Restrictions", value=f"```{restrictions[:1017]}```", inline=True)
             examples = ("\n".join([f"`{self.get_prefix()}{self.name} {example}`"
                                    if example else f"`{self.get_prefix()}{self.name}`" for example in self.examples]))
-            embed.add_field(name="Examples", value=examples or "No examples found.", inline=False)
-            embed.set_footer(text=ctx.message.author.display_name, icon_url=ctx.message.author.avatar_url)
+            embed.add_field(name="Examples", value=examples[:1017] or "No examples found.", inline=False)
+            embed.set_footer(text=ctx.author.display_name, icon_url=ctx.author.avatar_url)
+            if len(embed) > 6000:
+                embed = Embed(colour=discord.Color(0x990F02), timestamp=datetime.datetime.utcnow())
+                embed.description = "The combined length of the embed was more than the 6000 character maximum!"
+                embed.set_author(name="Oh no! Something went wrong!")
+                embed.set_footer(text=ctx.author.display_name, icon_url=ctx.author.avatar_url)
             return embed
 
     class _ModuleInfo:
@@ -206,18 +211,25 @@ class TravusBotBase(Bot):
 
         def make_about_embed(self, ctx: Context) -> Embed:
             """Creates embeds for module based on info stored in class."""
-            desc = self.description.replace("_prefix_", self.get_prefix())
-            embed = Embed(colour=discord.Color(0x4a4a4a), description=desc if len(desc) < 1950 else f"{desc[:1949]}...",
-                          timestamp=datetime.datetime.utcnow())
+            embed = Embed(colour=discord.Color(0x4a4a4a), timestamp=datetime.datetime.utcnow())
+            description = self.description.replace("_prefix_", self.get_prefix())
+            embed.description = description if len(description) < 4097 else f"{description[:4092]}..."
             embed.set_author(name=self.name)
             embed.set_footer(text=ctx.author.display_name, icon_url=ctx.author.avatar_url)
             if self.image:
                 embed.set_thumbnail(url=self.image)
+            author = self.author if len(self.author) < 1024 else f"{self.author[:1020]}..."
             if not self.credits:
-                embed.add_field(name="Authored By", value=f"{self.author}")
+                embed.add_field(name="Authored By", value=author)
             else:  # If there are additional credits make both sections inline.
-                embed.add_field(name="Authored By", value=f"{self.author}", inline=True)
-                embed.add_field(name="Additional Credits", value=f"{self.credits}", inline=True)
+                extra_credits = self.credits if len(self.credits) < 1024 else f"{self.credits[:1020]}..."
+                embed.add_field(name="Authored By", value=author, inline=True)
+                embed.add_field(name="Additional Credits", value=extra_credits, inline=True)
+            if len(embed) > 6000:
+                embed = Embed(colour=discord.Color(0x990F02), timestamp=datetime.datetime.utcnow())
+                embed.description = "The combined length of the embed was more than the 6000 character maximum!"
+                embed.set_author(name="Oh no! Something went wrong!")
+                embed.set_footer(text=ctx.author.display_name, icon_url=ctx.author.avatar_url)
             return embed
 
     class _CustomHelp(commands.HelpCommand):
@@ -250,27 +262,30 @@ class TravusBotBase(Bot):
             new_ctx.guild = None
             non_passing = {f'`{com.qualified_name}`¹': com for com in non_passing if await can_run(com, new_ctx)}
             filtered_mapping.update(non_passing)
-            if len(filtered_mapping.items()) == 0:
+            if not filtered_mapping:
                 await self.get_destination().send("No help information was found.")
                 return
             for com_text, com in filtered_mapping.items():
                 if com.qualified_name in self.context.bot.help.keys():
                     command_help = self.context.bot.help[com.qualified_name]  # Get command help info.
                     category = command_help.category.lower() if command_help.category else "no category"
-                    if category not in categories.keys():  # Add category if it wasn't encountered before.
+                    if category not in categories:  # Add category if it wasn't encountered before.
                         categories[category] = []
                     categories[category].append(com_text)  # Add command to category.
-            msg = f"__**Help Info {self.context.message.author.mention}:**__\n\n"
+
+            paginator = commands.Paginator(prefix="", suffix="", linesep="")
+            paginator.add_line(f"__**Help Info {self.context.message.author.mention}:**__\n\n")
             for category in sorted(categories.keys()):
-                category_text = f"**{category.title()}**\n{', '.join(sorted(categories[category]))}\n\n"
-                if len(category_text) > 1950:
-                    category_text = '\n'.join(split_long_messages(category_text))  # Break up too long categories.
-                msg += self.remove_mentions(category_text)
-            msg += '1 = In DMs only.\n' if len(non_passing) else ""
-            msg += f"Use `{self.context.bot.get_bot_prefix()}help <COMMAND>` for more info on individual commands."
-            msgs = split_long_messages(msg, 1950, "\n")  # Split the message along newlines if over 1950 long.
-            for msg_to_send in msgs:
-                await self.get_destination().send(msg_to_send)
+                paginator.add_line(f"**{category.title()}**\n")
+                category_commands = [f"{com}, " for com in sorted(categories[category])]
+                category_commands[-1] = f"{category_commands[-1][:-2]}\n\n"  # Replace ', ' with '\n\n' on last command
+                for com in category_commands:
+                    paginator.add_line(self.remove_mentions(com))
+            end = '1 = In DMs only.\n' if len(non_passing) else ""
+            end += f"Use `{self.context.bot.get_bot_prefix()}help <COMMAND>` for more info on individual commands."
+            paginator.add_line(end)
+            for page in paginator.pages:
+                await self.get_destination().send(page)
 
         async def send_bot_help(self, mapping):
             """Function that triggers when help command is used without command."""
@@ -718,27 +733,6 @@ def unembed_urls(text: str) -> str:
     ptrn = compile(r"(\b|<)https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_+.~#?&\\/=]*)>?")
     text = ptrn.sub(repl, text)
     return text
-
-
-def split_long_messages(text: str, max_len: int = 1950, delimiter: str = " ") -> List[str]:
-    """Takes a text, max length and delimiter, and splits the text by the delimiter in such as way that no individual
-    parts are longer than the max length. The delimiter is not removed, and merely used to indicate splittable
-    points. Common delimiters are space or newline."""
-    text_blocks = [content + delimiter for content in text.split(delimiter)]  # Split and keep delimiter.
-    text_blocks.append(text_blocks.pop().rstrip(delimiter))  # Remove and re-add last element without delimiter.
-    messages = []
-    message = ""
-    for block in text_blocks:  # Concatenate text blocks while heeding max line length.
-        if len(block) + len(message) < max_len:
-            message += block
-        else:
-            messages.append(message)
-            message = block
-    if message:  # Add remaining text as last block.
-        messages.append(message)
-    if "" in messages:
-        messages.remove("")
-    return messages
 
 
 BOT_LOG = logging.getLogger("bot")
