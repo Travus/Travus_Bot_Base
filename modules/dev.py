@@ -179,13 +179,17 @@ class DevCog(commands.Cog):
         """This command gives you role IDs of one or all roles in the server depending on if a role or `all` is passed
         along. You can also pass along a channel, in this server or otherwise, in which case the response is sent in
         that channel. Sending `dm` instead of a channel will send you the result in direct messages."""
+        paginator = commands.Paginator()
         if isinstance(role, str) and role.lower() == "all":
-            response = "\n".join([f"{role.name}: {role.id}" for role in reversed(ctx.guild.roles)])
+            for _role in reversed(ctx.guild.roles):
+                paginator.add_line(f"{_role.name}: {_role.id}")
+            for page in paginator.pages:
+                await tbb.send_in_global_channel(ctx, resp_channel, page)
         elif isinstance(role, str):
             raise commands.BadArgument("Role could not be parsed and string is not 'all'.")
         else:
             response = f"{role.name}: {role.id}"
-        await tbb.send_in_global_channel(ctx, resp_channel, f"```{response}```")
+            await tbb.send_in_global_channel(ctx, resp_channel, f"```{response}```")
 
     @commands.guild_only()
     @commands.has_permissions(manage_channels=True)
@@ -197,9 +201,14 @@ class DevCog(commands.Cog):
         response is sent in that channel. Sending `dm` instead of a second channel will send you the result in direct
         messages."""
         response = ""
+        paginator = commands.Paginator()
         if isinstance(channel, str) and channel.lower() == "all":
-            response = "\n".join([f"{channel.name}: {channel.id}" for channel in ctx.guild.text_channels])
-            response += "\n" + "\n".join([f"{channel.name}: {channel.id}" for channel in ctx.guild.voice_channels])
+            for _channel in ctx.guild.text_channels:
+                paginator.add_line(f"{_channel.name}: {_channel.id}")
+            for _channel in ctx.guild.voice_channels:
+                paginator.add_line(f"{_channel.name}: {_channel.id}")
+            for page in paginator.pages:
+                await tbb.send_in_global_channel(ctx, resp_channel, page)
         elif isinstance(channel, str):
             raise commands.BadArgument("Channel could not be parsed and string is not 'all'.")
         else:

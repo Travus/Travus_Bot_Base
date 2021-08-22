@@ -170,10 +170,9 @@ class CoreFunctionalityCog(commands.Cog):
     @botconfig.command(name="description", aliases=["desc"], usage="<DESCRIPTION/remove>")
     async def botconfig_description(self, ctx: commands.Context, *, description: str):
         """This command sets the bot description that is used by the about command. The description can technically be
-        up to 2048 characters long, keep however in mind that Discord messages have a maximum length of 2000 characters
-        characters, that normal messages have, in order to send the command that sets the description. If `remove` is
-        sent along then the description will be removed. The special keyword `_prefix_` wil be replaced by the current
-        bot prefix."""
+        up to 4096 characters long, keep however in mind that Discord messages have a maximum length of 4000 characters
+        (2000 without Nitro). If `remove` is sent along then the description will be removed. The special keyword
+        `_prefix_` wil be replaced by the current bot prefix."""
         async with self.bot.db.acquire() as conn:
             if description.lower() == "remove":
                 await conn.execute("UPDATE settings SET value = '' WHERE key = 'bot_description'")
@@ -230,12 +229,22 @@ class CoreFunctionalityCog(commands.Cog):
         be placed inside the modules folder inside the bot directory. Modules listed by this command can be loaded,
         unloaded and reloaded by the respective commands for this. See help text for `module load`, `module unload`
         and `module reload` for more info on this."""
-        loaded_modules = [f"`{clean(ctx, mod.replace('modules.', ''))}`" for mod in self.bot.extensions.keys()
-                          if mod != "core_commands"]  # Get all loaded modules bar core_functions.
-        available_modules = [f'`{clean(ctx, mod.replace(".py", ""))}`' for mod in listdir("modules")
-                             if mod.endswith(".py") and f"`{mod.replace('.py', '')}`" not in loaded_modules]
-        await ctx.send(f"Loaded modules: {'None' if not loaded_modules else ', '.join(loaded_modules)}\n"
-                       f"Available Modules: {'None' if not available_modules else ', '.join(available_modules)}")
+        loaded_modules = [f"`{clean(ctx, mod.replace('modules.', ''), False, True)}`, "
+                          for mod in self.bot.extensions if mod != "core_commands"] or ["None, "]
+        available_modules = [f'`{clean(ctx, mod, False, True).replace(".py", "")}`, '
+                             for mod in listdir("modules") if mod.endswith(".py")]
+        available_modules = [mod for mod in available_modules if mod not in loaded_modules] or ["None, "]
+        loaded_modules[-1] = loaded_modules[-1][:-2]
+        available_modules[-1] = available_modules[-1][:-2]
+        paginator = commands.Paginator(prefix="", suffix="", linesep="")
+        paginator.add_line(f"Loaded modules: ")
+        for mod in loaded_modules:
+            paginator.add_line(mod)
+        paginator.add_line(f"\nAvailable Modules: ")
+        for mod in available_modules:
+            paginator.add_line(mod)
+        for page in paginator.pages:
+            await ctx.send(page)
 
     @commands.has_permissions(administrator=True)
     @module.command(name="load", aliases=["l"], usage="<MODULE NAME>")
@@ -273,7 +282,7 @@ class CoreFunctionalityCog(commands.Cog):
         information will also be logged to the console when the error first is encountered. This command retains this
         information until another error replaces it, or the bot shuts down."""
         if self.bot.last_module_error:
-            await ctx.send(self.bot.last_module_error)
+            await ctx.send(self.bot.last_module_error[:1999])
         else:
             await ctx.send("There have not been any errors loading modules since the last restart.")
 
@@ -293,8 +302,14 @@ class CoreFunctionalityCog(commands.Cog):
         loaded modules see the `module list` command."""
         async with self.bot.db.acquire() as conn:
             result = await conn.fetch("SELECT module FROM default_modules")
-        result = [f"`{clean(ctx, val['module'])}`" for val in result] if len(result) > 0 else None
-        await ctx.send(f"Default modules: {'None' if result is None else ', '.join(result)}")
+        result = [f"`{clean(ctx, val['module'], False, True)}`, " for val in result] or ["None, "]
+        result[-1] = result[-1][:-2]
+        paginator = commands.Paginator(prefix="", suffix="", linesep="")
+        paginator.add_line("Default modules: ")
+        for mod in result:
+            paginator.add_line(mod)
+        for page in paginator.pages:
+            await ctx.send(page)
 
     @commands.is_owner()
     @default.command(name="add", usage="<MODULE NAME>")
@@ -510,16 +525,20 @@ class CoreFunctionalityCog(commands.Cog):
             if not self.bot.config:
                 await ctx.send("No configuration options are set.")
                 return
-            response = "\n".join([f"{key}: {value}" for key, value in self.bot.config.items()])
-            response = tbb.clean(ctx, response, False).replace('`', 'ˋ')
-            await ctx.send(f"```{response}```")
+            paginator = commands.Paginator()
+            for line in [f"{key}: {value}" for key, value in self.bot.config.items()]:
+                line = tbb.clean(ctx, line, False, True)
+                paginator.add_line(line if len(line) < 1992 else f"{line[:1989]}...")
+            for page in paginator.pages:
+                await ctx.send(page)
         elif option.lower() in self.bot.config:
-            option = tbb.clean(ctx, option).replace('`', '\\`')
-            value = tbb.clean(ctx, self.bot.config[option], False).replace('`', 'ˋ')
-            await ctx.send(f"Option: `{option}`, value: `{value}`")
+            value = tbb.clean(ctx, self.bot.config[option], False, True)
+            option = tbb.clean(ctx, option, False, True)
+            line = f"Option: `{option}`, value: `{value}`"
+            await ctx.send(line if len(line) < 1994 else f"{line[:1991]}...")
         else:
-            option = tbb.clean(ctx, option).replace('`', 'ˋ')
-            await ctx.send(f"No configuration option `{tbb.clean(ctx, option, False)}` is set.")
+            option = tbb.clean(ctx, option, False, True)
+            await ctx.send(f"No configuration option `{option if len(option) < 1960 else option[:1959]}...` is set.")
 
     @commands.has_permissions(administrator=True)
     @config.command(name="set", usage="CONFIG_OPTION> <VALUE>")
@@ -551,11 +570,13 @@ class CoreFunctionalityCog(commands.Cog):
             del self.bot.config[option]
             async with self.bot.db.acquire() as conn:
                 await conn.execute("DELETE FROM config WHERE key = $1", option)
-                option = tbb.clean(ctx, option, False).replace('`', 'ˋ')
-            await ctx.send(f"Configuration option `{option}` has been unset.")
+                option = tbb.clean(ctx, option, False, True)
+            line = f"Configuration option `{option}` has been unset."
+            await ctx.send(line if len(line) < 2000 else f"{line[:1996]}...")
         else:
-            option = tbb.clean(ctx, option, False).replace('`', 'ˋ')
-            await ctx.send(f"No configuration option `{option}` exists.")
+            option = tbb.clean(ctx, option, False, True)
+            line = f"No configuration option `{option}` exists."
+            await ctx.send(line if len(line) < 2000 else f"{line[:1996]}...")
 
     @commands.is_owner()
     @commands.command(name="shutdown", aliases=["goodbye", "goodnight"], usage="(TIME BEFORE SHUTDOWN)")
