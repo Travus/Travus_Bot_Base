@@ -231,7 +231,7 @@ class CoreFunctionalityCog(commands.Cog):
         and `module reload` for more info on this."""
         loaded_modules = [f"`{clean(ctx, mod.replace('modules.', ''), False, True)}`, "
                           for mod in self.bot.extensions if mod != "core_commands"] or ["None, "]
-        available_modules = [f'`{clean(ctx, mod, False, True).replace(".py", "")}`, '
+        available_modules = [f"`{clean(ctx, mod, False, True).replace('.py', '')}`, "
                              for mod in listdir("modules") if mod.endswith(".py")]
         available_modules = [mod for mod in available_modules if mod not in loaded_modules] or ["None, "]
         loaded_modules[-1] = loaded_modules[-1][:-2]
@@ -458,7 +458,7 @@ class CoreFunctionalityCog(commands.Cog):
             await ctx.send(embed=embed)
         else:
             response = f"No information for `{clean(ctx, module_name)}` module was found."
-            if module_name not in [mod.replace('modules.', '') for mod in self.bot.extensions.keys()]:
+            if module_name not in [mod.replace("modules.", "") for mod in self.bot.extensions.keys()]:
                 response += "\nAdditionally no module with this name is loaded."
             await ctx.send(response)
 
@@ -502,7 +502,7 @@ class CoreFunctionalityCog(commands.Cog):
                     await ctx.send(embed=usage_content)
         else:
             response = f"No information for `{clean(ctx, module_name)}` module was found."
-            if module_name not in [mod.replace('modules.', '') for mod in self.bot.extensions.keys()]:
+            if module_name not in [mod.replace("modules.", "") for mod in self.bot.extensions.keys()]:
                 response += "\nAdditionally no module with this name is loaded."
             await ctx.send(response)
 

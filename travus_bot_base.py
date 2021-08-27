@@ -260,7 +260,7 @@ class TravusBotBase(Bot):
             non_passing = list(set(full_mapping).difference(set(filtered_mapping.values())))
             new_ctx = copy(self.context)
             new_ctx.guild = None
-            non_passing = {f'`{com.qualified_name}`¹': com for com in non_passing if await can_run(com, new_ctx)}
+            non_passing = {f"`{com.qualified_name}`¹": com for com in non_passing if await can_run(com, new_ctx)}
             filtered_mapping.update(non_passing)
             if not filtered_mapping:
                 await self.get_destination().send("No help information was found.")
@@ -281,7 +281,7 @@ class TravusBotBase(Bot):
                 category_commands[-1] = f"{category_commands[-1][:-2]}\n\n"  # Replace ', ' with '\n\n' on last command
                 for com in category_commands:
                     paginator.add_line(self.remove_mentions(com))
-            end = '1 = In DMs only.\n' if len(non_passing) else ""
+            end = "1 = In DMs only.\n" if len(non_passing) else ""
             end += f"Use `{self.context.bot.get_bot_prefix()}help <COMMAND>` for more info on individual commands."
             paginator.add_line(end)
             for page in paginator.pages:
@@ -583,24 +583,24 @@ class TravusBotBase(Bot):
                                f"{ctx.command.full_parent_name + ' ' if ctx.command.full_parent_name else ''}"
                                f"{ctx.invoked_with} {ctx.command.usage or ''}`")
         elif isinstance(error, commands.NotOwner):  # Log to console.
-            self.log.warning(f'{ctx.author.id}: Command "{ctx.command}" requires bot owner status')
+            self.log.warning(f"{ctx.author.id}: Command '{ctx.command}' requires bot owner status")
         elif isinstance(error, commands.MissingPermissions):  # Log to console.
-            self.log.warning(f'{ctx.author.id}: Command "{ctx.command}" requires additional permissions: '
-                             f'{", ".join(error.missing_perms)}')
+            self.log.warning(f"{ctx.author.id}: Command '{ctx.command}' requires additional permissions: "
+                             f"{', '.join(error.missing_perms)}")
         elif isinstance(error, commands.MissingRole):  # Log to console.
-            self.log.warning(f'{ctx.author.id}: Command "{ctx.command}" requires role: {error.missing_role}')
+            self.log.warning(f"{ctx.author.id}: Command '{ctx.command}' requires role: {error.missing_role}")
         elif isinstance(error, commands.MissingAnyRole):  # Log to console.
-            self.log.warning(f'{ctx.author.id}: Command "{ctx.command}" requires role: '
-                             f'{" or ".join(error.missing_roles)}')
+            self.log.warning(f"{ctx.author.id}: Command '{ctx.command}' requires role: "
+                             f"{' or '.join(error.missing_roles)}")
         elif isinstance(error, commands.CommandNotFound):  # Log to console.
-            self.log.warning(f'{ctx.author.id}: {error}')
+            self.log.warning(f"{ctx.author.id}: {error}")
         elif isinstance(error, CCError):  # Log to console if message wasn't properly sent to Discord.
-            self.log.warning(f'{ctx.author.id}: Connection error to Discord. Message lost.')
+            self.log.warning(f"{ctx.author.id}: Connection error to Discord. Message lost.")
         elif isinstance(error.__cause__, Forbidden):  # Log to console if lacking permissions.
-            self.log.warning(f'{ctx.author.id}: Missing permissions.')
+            self.log.warning(f"{ctx.author.id}: Missing permissions.")
         elif error is not None:  # Log error to console.
-            self.log.warning(f'{ctx.author.id}: {error}')
-        self.last_error = f'[{cur_time()}] {ctx.author.id}: {error}'
+            self.log.warning(f"{ctx.author.id}: {error}")
+        self.last_error = f"[{cur_time()}] {ctx.author.id}: {error}"
 
 
 def parse_time(duration: str, minimum: int = None, maximum: int = None, error_on_exceeded: bool = True) -> int:
@@ -677,29 +677,29 @@ def clean(ctx: Context, text: str, escape_markdown: bool = True, replace_backtic
         m = ctx.bot.get_user(_id)
         return '@' + m.name if m else '@deleted-user'
 
-    transformations.update(('<@%s>' % member_id, resolve_member(member_id)) for member_id
-                           in [int(x) for x in findall(r'<@!?([0-9]+)>', text)])
-    transformations.update(('<@!%s>' % member_id, resolve_member(member_id)) for member_id
-                           in [int(x) for x in findall(r'<@!?([0-9]+)>', text)])
+    transformations.update(("<@%s>" % member_id, resolve_member(member_id)) for member_id
+                           in [int(x) for x in findall(r"<@!?([0-9]+)>", text)])
+    transformations.update(("<@!%s>" % member_id, resolve_member(member_id)) for member_id
+                           in [int(x) for x in findall(r"<@!?([0-9]+)>", text)])
 
     if ctx.guild:
         def resolve_channel(_id):
             """Resolves channel mentions."""
             ch = ctx.guild.get_channel(_id)
-            return ('<#%s>' % _id), ('#' + ch.name if ch else '#deleted-channel')
+            return ("<#%s>" % _id), ("#" + ch.name if ch else "#deleted-channel")
 
         def resolve_role(_id):
             """Resolves role mentions."""
             r = ctx.guild.get_role(_id)
             return '@' + r.name if r else '@deleted-role'
 
-        transformations.update(resolve_channel(channel) for channel in [int(x) for x in findall(r'<#([0-9]+)>', text)])
-        transformations.update(('<@&%s>' % role_id, resolve_role(role_id))
-                               for role_id in [int(x) for x in findall(r'<@&([0-9]+)>', text)])
+        transformations.update(resolve_channel(channel) for channel in [int(x) for x in findall(r"<#([0-9]+)>", text)])
+        transformations.update(("<@&%s>" % role_id, resolve_role(role_id))
+                               for role_id in [int(x) for x in findall(r"<@&([0-9]+)>", text)])
 
     def repl(obj):
         """Function used in regex substitution."""
-        return transformations.get(obj.group(0), '')
+        return transformations.get(obj.group(0), "")
 
     pattern = compile('|'.join(transformations.keys()))
     result = pattern.sub(repl, text)

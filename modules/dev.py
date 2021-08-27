@@ -53,7 +53,7 @@ async def mystbin_send(text: str, line_length: int = None) -> Optional[str]:
                     lines[n] += wrapped[-1]
             text = "\n".join(lines)
         async with ClientSession() as session:
-            key = (await (await session.post('https://mystb.in/documents', data=text.encode())).json())["key"]
+            key = (await (await session.post("https://mystb.in/documents", data=text.encode())).json())["key"]
             return f"https://mystb.in/{key}"
     else:
         return None
@@ -82,8 +82,8 @@ class DevCog(commands.Cog):
                         lines[n] += wrapped[-1]
                 text = "\n".join(lines)
                 async with aiohttp.ClientSession() as session:
-                    key = (await (await session.post('https://mystb.in/documents', data=text.encode())).json())["key"]
-                    await ctx.send(f'https://mystb.in/{key}')
+                    key = (await (await session.post("https://mystb.in/documents", data=text.encode())).json())["key"]
+                    await ctx.send(f"https://mystb.in/{key}")
             else:
                 await ctx.send(f"```py\n{text}\n```")
 
@@ -114,9 +114,9 @@ class DevCog(commands.Cog):
     @staticmethod
     def cleanup_code(content: str) -> str:
         """Automatically removes code blocks from the code."""
-        if content.startswith('```') and content.endswith('```'):
-            return '\n'.join(content.split('\n')[1:-1])
-        return content.strip('` \n')
+        if content.startswith("```") and content.endswith("```"):
+            return "\n".join(content.split("\n")[1:-1])
+        return content.strip("` \n")
 
     # noinspection PyBroadException
     @commands.is_owner()
@@ -127,21 +127,21 @@ class DevCog(commands.Cog):
         discord message a mystbin link with the response will be sent. Mystbin output will be line-wrapped to make it
         more readable."""
         stdout = StringIO()
-        env = {'bot': self.bot, 'ctx': ctx, 'channel': ctx.channel, 'author': ctx.author, 'guild': ctx.guild,
-               'message': ctx.message, '_': self._last_result}
+        env = {"bot": self.bot, "ctx": ctx, "channel": ctx.channel, "author": ctx.author, "guild": ctx.guild,
+               "message": ctx.message, "_": self._last_result}
         env.update(globals())
         try:
             exec(f'async def function():\n{indent(self.cleanup_code(body), "  ")}', env)
         except Exception as e:
-            response = f'{e.__class__.__name__}: {e}'
+            response = f"{e.__class__.__name__}: {e}"
             return await self._mystbin_send(ctx, response)
-        function = env['function']
+        function = env["function"]
         try:
             with redirect_stdout(stdout):
                 ret = await function()
         except Exception:
             value = stdout.getvalue()
-            response = f'{value}{format_exc()}'
+            response = f"{value}{format_exc()}"
         else:
             value = stdout.getvalue()
             if ret is None:
