@@ -7,7 +7,7 @@ from yaml import dump
 
 def clr():
     """Clear the terminal."""
-    os.system('cls' if os.name == 'nt' else 'clear')  # Clear function that works across platforms.
+    os.system("cls" if os.name == "nt" else "clear")  # Clear function that works across platforms.
 
 
 def main():

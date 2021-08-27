@@ -53,8 +53,8 @@ def get_bot(logger: logging.Logger) -> (tbb.TravusBotBase, str):
     return tbb.TravusBotBase(command_prefix=get_prefix, intents=intent, db_credentials=db_credentials), discord_token
 
 
-if __name__ == '__main__':
-    logging.basicConfig(format="%(asctime)s %(name)s %(levelname)s: %(message)s", datefmt='%Y-%m-%d %H:%M:%S')
+if __name__ == "__main__":
+    logging.basicConfig(format="%(asctime)s %(name)s %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
     log = logging.getLogger("main")
     log.setLevel(logging.INFO)
     bot, token = get_bot(log)
