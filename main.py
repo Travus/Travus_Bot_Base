@@ -48,7 +48,7 @@ def get_bot(logger: logging.Logger) -> Tuple[tbb.TravusBotBase, str]:
         password=config["pg_password"],
         host=config["pg_address"],
         port=config["pg_port"],
-        database=config["pg_database"]
+        database=config["pg_database"],
     )
     discord_token = config["discord_token"]
     return tbb.TravusBotBase(command_prefix=get_prefix, intents=intent, db_credentials=db_credentials), discord_token

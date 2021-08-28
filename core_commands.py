@@ -13,16 +13,8 @@ from travus_bot_base import clean  # Shorthand for cleaning output.
 def setup(bot: tbb.TravusBotBase):
     """Setup function ran when module is loaded."""
     bot.add_cog(CoreFunctionalityCog(bot))  # Add cog and command help info.
-    bot.add_command_help(CoreFunctionalityCog.botconfig, "Core", None,
-                         ["prefix", "deletemessages", "description", "credits"])
     bot.add_command_help(CoreFunctionalityCog.botconfig_prefix, "Core", None, ["$", "bot!", "bot ?", "remove"])
     bot.add_command_help(CoreFunctionalityCog.botconfig_deletemessages, "Core", None, ["enable", "y", "disable", "n"])
-    bot.add_command_help(CoreFunctionalityCog.botconfig_description, "Core", None,
-                         ["remove", "This is a sample description."])
-    bot.add_command_help(CoreFunctionalityCog.botconfig_credits, "Core", None,
-                         ["remove", "`\n```\n[Person](URL):\n\tBot Profile Image\n``"])
-    bot.add_command_help(CoreFunctionalityCog.module, "Core", {"perms": ["Administrator"]},
-                         ["list", "load", "unload", "reload"])
     bot.add_command_help(CoreFunctionalityCog.module_list, "Core", {"perms": ["Administrator"]}, [""])
     bot.add_command_help(CoreFunctionalityCog.module_load, "Core", {"perms": ["Administrator"]}, ["fun", "economy"])
     bot.add_command_help(CoreFunctionalityCog.module_unload, "Core", {"perms": ["Administrator"]}, ["fun", "economy"])
@@ -31,8 +23,6 @@ def setup(bot: tbb.TravusBotBase):
     bot.add_command_help(CoreFunctionalityCog.default_list, "Core", None, [""])
     bot.add_command_help(CoreFunctionalityCog.default_add, "Core", None, ["fun", "economy"])
     bot.add_command_help(CoreFunctionalityCog.default_remove, "Core", None, ["fun", "economy"])
-    bot.add_command_help(CoreFunctionalityCog.command, "Core", {"perms": ["Administrator"]},
-                         ["enable", "disable", "show", "hide"])
     bot.add_command_help(CoreFunctionalityCog.command_enable, "Core", {"perms": ["Administrator"]}, ["balance", "pay"])
     bot.add_command_help(CoreFunctionalityCog.command_disable, "Core", {"perms": ["Administrator"]}, ["balance", "pay"])
     bot.add_command_help(CoreFunctionalityCog.command_show, "Core", {"perms": ["Administrator"]}, ["module", "balance"])
@@ -41,10 +31,29 @@ def setup(bot: tbb.TravusBotBase):
     bot.add_command_help(CoreFunctionalityCog.usage, "Core", None, ["", "dev"])
     bot.add_command_help(CoreFunctionalityCog.config, "Core", {"perms": ["Administrator"]}, ["get", "set", "unset"])
     bot.add_command_help(CoreFunctionalityCog.config_get, "Core", {"perms": ["Administrator"]}, ["alert_channel"])
-    bot.add_command_help(CoreFunctionalityCog.config_set, "Core", {"perms": ["Administrator"]},
-                         ["alert_channel 353246496952418305"])
     bot.add_command_help(CoreFunctionalityCog.config_unset, "Core", {"perms": ["Administrator"]}, ["alert_channel"])
     bot.add_command_help(CoreFunctionalityCog.shutdown, "Core", None, ["", "1h", "1h30m", "10m-30s", "2m30s"])
+    bot.add_command_help(
+        CoreFunctionalityCog.botconfig, "Core", None, ["prefix", "deletemessages", "description", "credits"]
+    )
+    bot.add_command_help(
+        CoreFunctionalityCog.botconfig_description, "Core", None, ["remove", "This is a sample description."]
+    )
+    bot.add_command_help(
+        CoreFunctionalityCog.module, "Core", {"perms": ["Administrator"]}, ["list", "load", "unload", "reload"]
+    )
+    bot.add_command_help(
+        CoreFunctionalityCog.command, "Core", {"perms": ["Administrator"]}, ["enable", "disable", "show", "hide"]
+    )
+    bot.add_command_help(
+        CoreFunctionalityCog.config_set, "Core", {"perms": ["Administrator"]}, ["alert_channel 353246496952418305"]
+    )
+    bot.add_command_help(
+        CoreFunctionalityCog.botconfig_credits,
+        "Core",
+        None,
+        ["remove", "`\n```\n[Person](URL):\n\tBot Profile Image\n``"],
+    )
 
 
 def teardown(bot: tbb.TravusBotBase):
@@ -112,13 +121,16 @@ class CoreFunctionalityCog(commands.Cog):
         except Exception as e:  # If module crashed while loading, restore old help and module info.
             self.bot.help = old_help
             self.bot.modules = old_modules
-            await ctx.send("**Error! Something went really wrong! Contact module maintainer.**\n"
-                           "Error logged to console and stored in module error command.")
+            await ctx.send(
+                "**Error! Something went really wrong! Contact module maintainer.**\nError logged to console and "
+                "stored in module error command."
+            )
             if isinstance(e, commands.ExtensionNotFound):  # Clarify error further in case it was an import error.
                 e = e.__cause__
             self.log.error(f"{ctx.author.id}: tried loading '{mod}' module, and it failed:\n\n{str(e)}")
-            self.bot.last_module_error = (f"The `{clean(ctx, mod, False)}` module failed while loading. The error was:"
-                                          f"\n\n{clean(ctx, str(e))}")
+            self.bot.last_module_error = (
+                f"The `{clean(ctx, mod, False)}` module failed while loading. The error was:\n\n{clean(ctx, str(e))}"
+            )
         finally:  # Reset context as loading has concluded.
             self.bot.extension_ctx = None
 
@@ -142,20 +154,27 @@ class CoreFunctionalityCog(commands.Cog):
             await ctx.send("The maximum prefix length is 20.")
             return
         self.bot.prefix = new_prefix if new_prefix.lower() != "remove" else None  # If 'remove', prefix is set to None.
-        activity = Activity(type=ActivityType.listening,
-                            name=f"prefix: {new_prefix}" if new_prefix.lower() != "remove" else "pings only")
+        activity = Activity(
+            type=ActivityType.listening,
+            name=f"prefix: {new_prefix}" if new_prefix.lower() != "remove" else "pings only",
+        )
         await self.bot.change_presence(activity=activity)  # Set status.
         async with self.bot.db.acquire() as conn:
-            await conn.execute("UPDATE settings SET value = $1 WHERE key = 'prefix'",
-                               new_prefix if new_prefix.lower() != "remove" else "")  # Empty string is no prefix.
+            await conn.execute(
+                "UPDATE settings SET value = $1 WHERE key = 'prefix'",
+                new_prefix if new_prefix.lower() != "remove" else "",
+            )  # Empty string is no prefix.
         if new_prefix.lower() != "remove":  # Give feedback to user.
             await ctx.send(f"The bot prefix has successfully been changed to `{new_prefix}`.")
         else:
             await ctx.send("The bot is now only listens to pings.")
 
     @commands.is_owner()
-    @botconfig.command(name="deletemessages", aliases=["deletemsgs", "deletecommands", "deletecmds", "delmessages",
-                                                       "delmsgs", "delcommands", "delcmds"], usage="<enable/disable>")
+    @botconfig.command(
+        name="deletemessages",
+        aliases=["deletemsgs", "deletecommands", "deletecmds", "delmessages", "delmsgs", "delcommands", "delcmds"],
+        usage="<enable/disable>",
+    )
     async def botconfig_deletemessages(self, ctx: commands.Context, operation: str):
         """This command sets the behaviour for deletion of command triggers. If this is enabled then messages that
         trigger commands will be deleted. Is this is disabled then the bot will not delete messages that trigger
@@ -189,8 +208,9 @@ class CoreFunctionalityCog(commands.Cog):
         async with self.bot.db.acquire() as conn:
             if description.lower() == "remove":
                 await conn.execute("UPDATE settings SET value = '' WHERE key = 'bot_description'")
-                self.bot.modules[self.bot.user.name.lower()].description = ("No description for the bot found. "
-                                                                            "Set description with `botconfig` command.")
+                self.bot.modules[
+                    self.bot.user.name.lower()
+                ].description = "No description for the bot found. Set description with `botconfig` command."
                 await ctx.send("The description has been removed.")
             else:
                 await conn.execute("UPDATE settings SET value = $1 WHERE key = 'bot_description'", description)
@@ -225,8 +245,9 @@ class CoreFunctionalityCog(commands.Cog):
             await ctx.send("The additional credits section has been set.")
 
     @commands.has_permissions(administrator=True)
-    @commands.group(invoke_without_command=True, name="module", aliases=["modules"],
-                    usage="<list/load/unload/reload/error>")
+    @commands.group(
+        invoke_without_command=True, name="module", aliases=["modules"], usage="<list/load/unload/reload/error>"
+    )
     async def module(self, ctx: commands.Context):
         """This command can load, unload, reload and list available modules. It can also show any errors that occur
         during the loading process. Modules contain added functionality, such as commands. The intended purpose for
@@ -242,10 +263,16 @@ class CoreFunctionalityCog(commands.Cog):
         be placed inside the modules folder inside the bot directory. Modules listed by this command can be loaded,
         unloaded and reloaded by the respective commands for this. See help text for `module load`, `module unload`
         and `module reload` for more info on this."""
-        loaded_modules = [f"`{clean(ctx, mod.replace('modules.', ''), False, True)}`, "
-                          for mod in self.bot.extensions if mod != "core_commands"] or ["None, "]
-        available_modules = [f"`{clean(ctx, mod, False, True).replace('.py', '')}`, "
-                             for mod in listdir("modules") if mod.endswith(".py")]
+        loaded_modules = [
+            f"`{clean(ctx, mod.replace('modules.', ''), False, True)}`, "
+            for mod in self.bot.extensions
+            if mod != "core_commands"
+        ] or ["None, "]
+        available_modules = [
+            f"`{clean(ctx, mod, False, True).replace('.py', '')}`, "
+            for mod in listdir("modules")
+            if mod.endswith(".py")
+        ]
         available_modules = [mod for mod in available_modules if mod not in loaded_modules] or ["None, "]
         loaded_modules[-1] = loaded_modules[-1][:-2]
         available_modules[-1] = available_modules[-1][:-2]
@@ -357,8 +384,9 @@ class CoreFunctionalityCog(commands.Cog):
                 await ctx.send(f"No `{clean(ctx, mod, False, True)}` module in default modules.")
 
     @commands.has_permissions(administrator=True)
-    @commands.group(invoke_without_command=True, name="command", aliases=["commands"],
-                    usage="<enable/disable/show/hide>")
+    @commands.group(
+        invoke_without_command=True, name="command", aliases=["commands"], usage="<enable/disable/show/hide>"
+    )
     async def command(self, ctx: commands.Context):
         """This command disables, enables, hides and shows other commands. Hiding commands means they don't show up in
         the overall help command list. Disabling a command means it can't be used. Disabled commands also do not show
@@ -379,8 +407,11 @@ class CoreFunctionalityCog(commands.Cog):
     async def _command_set_state(self, command: commands.Command, state: int):
         """Helper function for command command that sets the state of the command."""
         async with self.bot.db.acquire() as conn:
-            await conn.execute("UPDATE command_states SET state = $1 WHERE command = $2",
-                               state, f"{command.cog.__class__.__name__ + '.' if command.cog else ''}{command.name}")
+            await conn.execute(
+                "UPDATE command_states SET state = $1 WHERE command = $2",
+                state,
+                f"{command.cog.__class__.__name__ + '.' if command.cog else ''}{command.name}",
+            )
 
     @commands.has_permissions(administrator=True)
     @command.command(name="enable", usage="<COMMAND NAME>")
@@ -481,27 +512,29 @@ class CoreFunctionalityCog(commands.Cog):
         show some basic information about usage of the bot itself."""
         if module_name is None or module_name.lower() in [self.bot.user.name.lower(), "core_commands", "core commands"]:
             pref = self.bot.get_bot_prefix()
-            response = (f"**How To Use:**\nThis bot features a variety of commands. You can get a list of all commands "
-                        f"you have access to with the `{pref}help` command. In order to use a command your message has "
-                        f"to start with the *bot prefix*, the bot prefix is currently set to `{pref}`. Simply type "
-                        f"this prefix, followed by a command name, and you will run the command. For more information "
-                        f"on individual commands, run `{pref}help` followed by the command name. This will give you "
-                        f"info on the command, along with some examples of it and any aliases the command might have. "
-                        f"You might not have access to all commands everywhere, the help command will only tell you "
-                        f"about commands you have access to in that channel, and commands you can run only in the DMs "
-                        f"with the bot. DM only commands will be labeled as such by the help command.\n\nSome commands "
-                        f"accept extra input, an example would be how the help command accepts a command name. You can "
-                        f"usually see an example of how the command is used on the command's help page. If you use a "
-                        f"command incorrectly by missing some input or sending invalid input, it will send you the "
-                        f"expected input. This is how to read the expected input:\n\nArguments encased in `<>` are "
-                        f"obligatory.\nArguments encased in `()` are optional and can be skipped.\nArguments written "
-                        f"in all uppercase are placeholders like names.\nArguments not written in uppercase are exact "
-                        f"values.\nIf an argument lists multiple things separated by `/` then any one of them is valid."
-                        f"\nThe `<>` and `()` symbols are not part of the command.\n\nSample expected input: `{pref}"
-                        f"about (MODULE NAME)`\nHere `{pref}about` is the command, and it takes an optional argument. "
-                        f"The argument is written in all uppercase, so it is a placeholder. In other words you are "
-                        f"expected to replace 'MODULE NAME' with the actual name of a module. Since the module name is "
-                        f"optional, sending just `{pref}about` is also a valid command.")
+            response = (
+                f"**How To Use:**\nThis bot features a variety of commands. You can get a list of all commands "
+                f"you have access to with the `{pref}help` command. In order to use a command your message has "
+                f"to start with the *bot prefix*, the bot prefix is currently set to `{pref}`. Simply type "
+                f"this prefix, followed by a command name, and you will run the command. For more information "
+                f"on individual commands, run `{pref}help` followed by the command name. This will give you "
+                f"info on the command, along with some examples of it and any aliases the command might have. "
+                f"You might not have access to all commands everywhere, the help command will only tell you "
+                f"about commands you have access to in that channel, and commands you can run only in the DMs "
+                f"with the bot. DM only commands will be labeled as such by the help command.\n\nSome commands "
+                f"accept extra input, an example would be how the help command accepts a command name. You can "
+                f"usually see an example of how the command is used on the command's help page. If you use a "
+                f"command incorrectly by missing some input or sending invalid input, it will send you the "
+                f"expected input. This is how to read the expected input:\n\nArguments encased in `<>` are "
+                f"obligatory.\nArguments encased in `()` are optional and can be skipped.\nArguments written "
+                f"in all uppercase are placeholders like names.\nArguments not written in uppercase are exact "
+                f"values.\nIf an argument lists multiple things separated by `/` then any one of them is valid."
+                f"\nThe `<>` and `()` symbols are not part of the command.\n\nSample expected input: `{pref}"
+                f"about (MODULE NAME)`\nHere `{pref}about` is the command, and it takes an optional argument. "
+                f"The argument is written in all uppercase, so it is a placeholder. In other words you are "
+                f"expected to replace 'MODULE NAME' with the actual name of a module. Since the module name is "
+                f"optional, sending just `{pref}about` is also a valid command."
+            )
             await ctx.send(response)
         elif module_name.lower() in self.bot.modules.keys():
             usage = self.bot.modules[module_name.lower()].usage
@@ -566,8 +599,9 @@ class CoreFunctionalityCog(commands.Cog):
         else:
             self.bot.config[option] = value
             async with self.bot.db.acquire() as conn:
-                await conn.execute("INSERT INTO config VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2",
-                                   option, value)
+                await conn.execute(
+                    "INSERT INTO config VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2", option, value
+                )
             option = tbb.clean(ctx, option, False, True)
             value = tbb.clean(ctx, value, False, True)
             line = f"Configuration option `{option}` has been set to `{value}`."
