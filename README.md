@@ -11,7 +11,11 @@
 </p>
 <br/><br/>
 
-This is the Travus Bot Base, a basic starting point for Discord bots using [Discord.py](https://github.com/Rapptz/discord.py). The bot comes with all the basic functionality you need and is intended to be further extended with functionality specific to your needs. The basic included functionality is managing prefix, hiding and disabling commands, easily generating rich help entries for commands and displaying information about the bot. The main draw of the Travus Bot Base framework is its easy extendability. The bot can technically work in multiple servers at once, but this is not intended as all settings and modules will be global across all servers. To run the bot with independent settings in different servers, run multiple separate instances of it.
+> **IMPORTANT NOTICE**
+> 
+> On the 28th of August it was announced that the [discord.py](https://github.com/Rapptz/discord.py) project has been shut down effective immediately, and that no more mainline development would occur. (Read more about this [here](https://gist.github.com/Rapptz/4a2f62751b9600a31a0d3c78100287f1).) Following this various other projects such as [Wavelink](https://github.com/PythonistaGuild/Wavelink) that rely on discord.py have also shut down development.
+> 
+> I will continue monitoring this situation, and have yet to decide how to continue from here. For now the Travus Bot Base will work with existing versions of discord.py. If a fork of discord.py takes over or the Bot base shifts to a different underlying library is yet to be decided upon. At current development of the Travus Bot Base is not intended to stop, but significant changes might be necessary.
 
 This is the Travus Bot Base, a basic starting point for Discord bots using [discord.py](https://github.com/Rapptz/discord.py). The bot comes with all the basic functionality you need and is intended to be further extended with functionality specific to your needs. The basic included functionality is managing prefix, hiding and disabling commands, easily generating rich help entries for commands and displaying information about the bot. The main draw of the Travus Bot Base framework is its easy extendability. The bot can technically work in multiple servers at once, but this is not intended as all settings and modules will be global across all servers. To run the bot with independent settings in different servers, run multiple separate instances of it.
 
@@ -86,6 +90,6 @@ If you need to get in contact with me for any reason, feel free to send me a mes
 
 **Credits**  
 The *Travus Bot Base* is made by [Travus](https://github.com/Travus).  
-[Discord.py](https://github.com/Rapptz/discord.py) is made by [Rapptz](https://github.com/Rapptz) and the other contributors to the project.  
+[Discord.py](https://github.com/Rapptz/discord.py) was made by [Rapptz](https://github.com/Rapptz) and the other contributors to the project.  
 
 The *Travus Bot Base* is made under the [MIT License](LICENSE.md), meaning you are welcome to change, redistribute, and use it however you see fit. I am not liable for any problems you may encounter by using the bot base.
