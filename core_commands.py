@@ -118,7 +118,22 @@ class CoreFunctionalityCog(commands.Cog):
             await ctx.send(f"The `{mod_name}` module was already loaded.")
         except commands.ExtensionNotLoaded:  # If module wasn't loaded to begin with.
             await ctx.send(f"No `{mod_name}` module is loaded.")
-        except Exception as e:  # If module crashed while loading, restore old help and module info.
+        except commands.ExtensionFailed as e:
+            self.bot.help = old_help
+            self.bot.modules = old_modules
+            if isinstance(e.original, tbb.DependencyError):
+                missing_deps = [f"`{clean(ctx, elem, False, True)}`" for elem in e.original.missing_dependencies]
+                await ctx.send(f"Module `{mod_name}` requires these missing dependencies: {', '.join(missing_deps)}")
+            else:
+                await ctx.send(
+                    "**Error! Something went really wrong! Contact module maintainer.**\nError logged to console and "
+                    "stored in module error command."
+                )
+            self.log.error(f"{ctx.author.id}: tried loading '{mod}' module, and it failed:\n\n{str(e)}")
+            self.bot.last_module_error = (
+                f"The `{clean(ctx, mod, False)}` module failed while loading. The error was:\n\n{clean(ctx, str(e))}"
+            )
+        except Exception as e:
             self.bot.help = old_help
             self.bot.modules = old_modules
             await ctx.send(

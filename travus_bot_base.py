@@ -28,6 +28,16 @@ from discord.ext import commands
 from discord.ext.commands import Command, Cog, Bot, Context
 
 
+class DependencyError(commands.CommandError):
+    """Custom exception raised when modules are missing dependencies."""
+
+    def __init__(self, dependencies: List[str]):
+        """Initialization of DependencyError exception."""
+        self.message = f"Missing dependencies: {', '.join(dependencies)}"
+        self.missing_dependencies = dependencies
+        super().__init__(self.message)
+
+
 class ConfigError(commands.CommandError):
     """Custom exception raised when missing config options."""
 
@@ -432,34 +442,66 @@ class TravusBotBase(Bot):
             exit(3)
 
     async def _load_default_modules(self):
-        """Load default modules once bot has cashed."""
-        async with self.db.acquire() as conn:
-            default_modules = await conn.fetch("SELECT module FROM default_modules")
-        default_modules = [mod["module"] for mod in default_modules]
-        await self.wait_until_ready()
+        """Load default modules once bot has cached."""
 
-        for mod in default_modules:
+        def load_module(default_list: List[str], module: str, propagate=False) -> bool:
+            """Attempt to load a module, and recursively attempts to loads dependencies."""
+            if module not in default_list:
+                return False
+            default_list.remove(module)
+
             old_help = dict(self.help)  # Save module and help info before loading in case we need to roll back.
             old_modules = dict(self.modules)
             self.extension_ctx = None
-            try:
-                if f"{mod}.py" in os.listdir("modules"):
-                    self.load_extension(f"modules.{mod}")
+            try:  # Try loading default module.
+                if f"{module}.py" in os.listdir("modules"):
+                    self.load_extension(f"modules.{module}")
                 else:
                     raise FileNotFoundError("Core commands file not found.")
-            except FileNotFoundError:
-                self.last_error = f"Default module '{mod}' not found."
-                self.log.warning(f"Default module '{mod}' not found.")
-            except Exception as e:
+            except FileNotFoundError:  # If module wasn't found.
+                if propagate:
+                    raise
+                self.last_error = f"Default module '{module}' not found."
+                self.log.warning(f"Default module '{module}' not found.")
+                return False
+            except commands.ExtensionFailed as e:
                 self.help = old_help
                 self.modules = old_modules
-                if isinstance(e, commands.ExtensionNotFound):
+                if propagate:
+                    raise
+                if isinstance(e.original, DependencyError):
+                    if all(load_module(default_list, dependency) for dependency in e.original.missing_dependencies):
+                        try:
+                            default_list.append(module)
+                            if load_module(default_list, module, True):
+                                return True
+                        except Exception as ee:
+                            e = ee
+                self.log.error(f"Default module '{module}' encountered and error.\n\n{str(e)}")
+                self.last_module_error = f"The `{module}` module failed while loading. The error was:\n\n{str(e)}"
+                return False
+            except Exception as e:  # If en error was encountered while loading default module, roll back.
+                self.help = old_help
+                self.modules = old_modules
+                if propagate:
+                    raise
+                if isinstance(e, commands.ExtensionNotFound):  # If import error, clarify further.
                     e = e.__cause__
-                self.log.error(f"Default module '{mod}' encountered and error.\n\n{str(e)}")
-                self.last_module_error = f"The `{mod}` module failed while loading. The error was:\n\n{str(e)}"
+                self.log.error(f"Default module '{module}' encountered and error.\n\n{str(e)}")
+                self.last_module_error = f"The `{module}` module failed while loading. The error was:\n\n{str(e)}"
+                return False
             else:
-                self.log.info(f"Default module '{mod}' loaded.")
-        await self.update_command_states()
+                self.log.info(f"Default module '{module}' loaded.")
+                return True
+
+        async with self.db.acquire() as conn:
+            default_modules = await conn.fetch("SELECT module FROM default_modules")
+        default_modules = [mod["module"] for mod in default_modules]
+        await self.wait_until_ready()  # Wait until object cashing is done.
+
+        for mod in list(default_modules):
+            load_module(default_modules, mod)
+        await self.update_command_states()  # Make sure commands are in the right state. (hidden, disabled)
 
     async def close(self):
         """Coses the bot and the database connections."""
@@ -471,6 +513,17 @@ class TravusBotBase(Bot):
         if self.prefix is not None:
             return self.prefix
         return f"@{self.user.display_name}#{self.user.discriminator} "
+
+    def check_dependencies(self, dependencies: List[str]):
+        """Checks if all dependencies are met. Raises DependencyError with the missing dependencies if not."""
+        dependencies = dependencies.copy()
+        if "core_commands" in dependencies and "core_commands" in self.extensions:  # core_commands is not in modules
+            dependencies.remove("core_commands")
+        for dependency in dependencies:
+            if f"modules.{dependency}" in self.extensions:
+                dependencies.remove(dependency)
+        if dependencies:
+            raise DependencyError(dependencies)
 
     def add_module(
         self,
