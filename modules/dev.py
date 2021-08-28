@@ -19,7 +19,7 @@ def setup(bot: tbb.TravusBotBase):
     bot.add_module(
         "Dev",
         "[Travus](https://github.com/Travus):\n\tEval command\n\tRoleID command\n\tChannelID command\n\tLast error "
-        "command\n\n[Rapptz](https://github.com/Rapptz):\n\tSudo command",
+        "command\n\tPing command\n\n[Rapptz](https://github.com/Rapptz):\n\tSudo command",
         DevCog.usage,
         """This module includes developer functionality that supply information useful for programming, such as IDs,
         as well as some debug and testing options such as code execution and remote command execution. Also allows
