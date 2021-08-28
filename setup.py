@@ -54,7 +54,7 @@ def main():
         clr()
         print("Please enter the port your Postgres database is listening on.")
         settings["pg_port"] = input("> ")
-    with open("config.yml", "w") as config:
+    with open("config.yml", "w", encoding="utf8") as config:
         dump(settings, config, default_flow_style=False)
     clr()
     print("Necessary info has been set.")  # Report back to user, wait 5 seconds, and end.

@@ -29,7 +29,7 @@ def get_bot(logger: logging.Logger) -> Tuple[tbb.TravusBotBase, str]:
     if "config.yml" not in os.listdir("."):
         logger.critical("Please run setup.py first!")
         exit(5)
-    with open("config.yml", "r") as config_object:
+    with open("config.yml", "r", encoding="utf8") as config_object:
         config = yaml.safe_load(config_object)
         if not all(element in config.keys() and config[element] is not None for element in config_options):
             logger.critical("Config was found, but lacked required options. Please run setup.py first.")
