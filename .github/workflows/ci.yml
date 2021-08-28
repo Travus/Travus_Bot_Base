@@ -1,4 +1,4 @@
-name: Flake8
+name: Lint
 
 on:
   push:
@@ -9,8 +9,8 @@ on:
     paths: [ '**.py' ]
 
 jobs:
-  flake8_lint:
-    name: Lint with Flake8
+  lint:
+    name: Lint Code
     runs-on: ubuntu-latest
     steps:
       - name: Set up Python 3.8
@@ -21,7 +21,13 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install flake8
+          pip install black flake8 pylint mypy
           pip install -r requirements.txt
+      - name: Check Black style
+        run: black ./*.py modules/*.py --check --line-length 120
       - name: Lint with flake8
-        run: flake8 . --count --statistics --max-line-length=120
+        run: flake8 ./*.py modules/*.py --count --statistics --max-line-length 120
+      - name: Lint with pylint
+        run: pylint ./*.py modules/*.py --rcfile pylintrc
+      - name: Lint with mypy
+        run: mypy ./*.py modules/*.py --ignore-missing-imports
