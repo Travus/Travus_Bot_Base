@@ -23,7 +23,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install black flake8 pylint mypy
           pip install -r requirements.txt
-          mypy --install-types --non-interactive
       - name: Check Black style
         run: black ./*.py modules/*.py --check --line-length 120
       - name: Lint with flake8
@@ -31,4 +30,4 @@ jobs:
       - name: Lint with pylint
         run: pylint ./*.py modules/*.py --rcfile pylintrc
       - name: Lint with mypy
-        run: mypy ./*.py modules/*.py --ignore-missing-imports
+        run: mypy ./*.py modules/*.py --install-types --non-interactive --ignore-missing-imports
