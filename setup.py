@@ -14,8 +14,14 @@ def main():
     """Contains the setup.py business logic."""
     token_ok = False  # Set to true when the token is valid.
     external = False  # Set to true if a external DB is used.
-    settings = {"discord_token": "", "pg_address": "postgres", "pg_user": "postgres", "pg_password": "postgres",
-                "pg_port": "5432", "pg_database": "discord_bot"}
+    settings = {
+        "discord_token": "",
+        "pg_address": "postgres",
+        "pg_user": "postgres",
+        "pg_password": "postgres",
+        "pg_port": "5432",
+        "pg_database": "discord_bot",
+    }
     clr()
     print("Setting up bot...")
     while not token_ok:  # Ask for token repeatedly until received.

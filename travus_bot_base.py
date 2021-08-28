@@ -28,16 +28,6 @@ from discord.ext import commands
 from discord.ext.commands import Command, Cog, Bot, Context
 
 
-class DependencyError(commands.CommandError):
-    """Custom exception raised when modules are missing dependencies."""
-
-    def __init__(self, dependencies: List[str]):
-        """Initialization of DependencyError exception."""
-        self.message = f"Missing dependencies: {', '.join(dependencies)}"
-        self.missing_dependencies = dependencies
-        super().__init__(self.message)
-
-
 class ConfigError(commands.CommandError):
     """Custom exception raised when missing config options."""
 
@@ -54,10 +44,13 @@ def required_config(requirements: Iterable[str]):
         missing = [f"`{requirement}`" for requirement in requirements if requirement not in predicate_ctx.bot.config]
         missing_str = ", ".join(missing)[:1850]
         if missing_str:
-            await predicate_ctx.send(f"This command requires the following missing configuration options to be set: "
-                                     f"{missing_str}.\nPlease contact an administrator for assistance.")
+            await predicate_ctx.send(
+                f"This command requires the following missing configuration options to be set: {missing_str}.\nPlease "
+                f"contact an administrator for assistance."
+            )
             raise ConfigError(f"Command {predicate_ctx.command.qualified_name} missing config options: {missing_str}")
         return not missing_str
+
     return commands.check(predicate)
 
 
@@ -79,7 +72,7 @@ class DatabaseCredentials:
             "password": self._password,
             "host": self._host,
             "port": self._port,
-            "database": self._database
+            "database": self._database,
         }
 
 
@@ -87,7 +80,7 @@ class GlobalChannel(commands.Converter):
     """Custom converter that returns user, or channel be it in the current server or another."""
 
     async def convert(
-            self, ctx: Context, channel: str
+        self, ctx: Context, channel: str
     ) -> Union[TextChannel, VoiceChannel, StoreChannel, StageChannel, CategoryChannel, GroupChannel, User]:
         """Converter method used by discord.py."""
         if isinstance(channel, str) and channel.lower() in ["here", "."]:
@@ -143,8 +136,14 @@ class TravusBotBase(Bot):
     class _HelpInfo:
         """Class that holds help info for commands."""
 
-        def __init__(self, get_prefix: Callable, command: Command, category: str = "no category",
-                     restrictions: Dict[str, Union[List[str], str]] = None, examples: List[str] = None):
+        def __init__(
+            self,
+            get_prefix: Callable,
+            command: Command,
+            category: str = "no category",
+            restrictions: Dict[str, Union[List[str], str]] = None,
+            examples: List[str] = None,
+        ):
             """Initialization function loading all necessary information for HelpInfo class."""
             res = restrictions  # Shortening often used variable name.
             self.get_prefix = get_prefix
@@ -168,7 +167,7 @@ class TravusBotBase(Bot):
 
         def make_help_embed(self, ctx: Context) -> Embed:
             """Creates embeds for command based on info stored in class."""
-            embed = Embed(colour=discord.Color(0x4a4a4a), timestamp=datetime.datetime.utcnow())
+            embed = Embed(colour=discord.Color(0x4A4A4A), timestamp=datetime.datetime.utcnow())
             description = f"Category: {self.category.title()}\n\n{self.description}"
             embed.description = description if len(description) < 4097 else f"{description[:4092]}..."
             embed.set_author(name=f"{self.name.title()} Command"[:255])
@@ -177,14 +176,20 @@ class TravusBotBase(Bot):
             restrictions = "Bot Owner Only: Yes\n" if self.owner_only else ""  # Make and add restrictions blurb.
             restrictions += "DM Only: Yes\n" if self.dm_only else ""
             restrictions += "" if self.dm_only else "Server Only: Yes" if self.guild_only else "Server Only: No"
-            restrictions += (("\nPermissions:\n" + "\n".join(f"   {perm}" for perm in self.permissions))
-                             if self.permissions else "")
-            restrictions += (("\nAny role of:\n" + "\n".join([f"   {role}" for role in self.roles]))
-                             if self.roles else "")
+            restrictions += (
+                ("\nPermissions:\n" + "\n".join(f"   {perm}" for perm in self.permissions)) if self.permissions else ""
+            )
+            restrictions += (
+                ("\nAny role of:\n" + "\n".join([f"   {role}" for role in self.roles])) if self.roles else ""
+            )
             restrictions += f"\n{self.other_restrictions}" if self.other_restrictions else ""
             embed.add_field(name="Restrictions", value=f"```{restrictions[:1017]}```", inline=True)
-            examples = ("\n".join([f"`{self.get_prefix()}{self.name} {example}`"
-                                   if example else f"`{self.get_prefix()}{self.name}`" for example in self.examples]))
+            examples = "\n".join(
+                [
+                    f"`{self.get_prefix()}{self.name} {example}`" if example else f"`{self.get_prefix()}{self.name}`"
+                    for example in self.examples
+                ]
+            )
             embed.add_field(name="Examples", value=examples[:1017] or "No examples found.", inline=False)
             embed.set_footer(text=ctx.author.display_name, icon_url=ctx.author.avatar_url)
             if len(embed) > 6000:
@@ -197,21 +202,29 @@ class TravusBotBase(Bot):
     class _ModuleInfo:
         """Class that holds info for modules."""
 
-        def __init__(self, get_prefix: Callable, name: str, author: str, usage: Callable[[], Union[str, Embed]] = None,
-                     description: str = None, extra_credits: str = None, image_link: str = None):
+        def __init__(
+            self,
+            get_prefix: Callable,
+            name: str,
+            author: str,
+            usage: Callable[[], Union[str, Embed]] = None,
+            description: str = None,
+            extra_credits: str = None,
+            image_link: str = None,
+        ):
             """Initialization function loading all necessary information for ModuleInfo class."""
             self.get_prefix = get_prefix
             self.name = name
             # Convert tabs to non-skipped spaces.
             self.author = author.replace("\t", "\u202F\u202F\u202F\u202F\u202F")
             self.description = description.replace("\n", " ") if description else "No module description found."
-            self.credits = (extra_credits.replace("\t", "\u202F\u202F\u202F\u202F\u202F") if extra_credits else None)
+            self.credits = extra_credits.replace("\t", "\u202F\u202F\u202F\u202F\u202F") if extra_credits else None
             self.image = image_link
             self.usage = usage
 
         def make_about_embed(self, ctx: Context) -> Embed:
             """Creates embeds for module based on info stored in class."""
-            embed = Embed(colour=discord.Color(0x4a4a4a), timestamp=datetime.datetime.utcnow())
+            embed = Embed(colour=discord.Color(0x4A4A4A), timestamp=datetime.datetime.utcnow())
             description = self.description.replace("_prefix_", self.get_prefix())
             embed.description = description if len(description) < 4097 else f"{description[:4092]}..."
             embed.set_author(name=self.name)
@@ -237,10 +250,14 @@ class TravusBotBase(Bot):
 
         def __init__(self):
             """Initialization function that sets help and usage text for custom help command."""
-            super(TravusBotBase._CustomHelp, self).__init__(command_attrs={"help": """This command shows a list of
-            categorized commands you have access to. If the name of a command is sent along it will show detailed help
-            information for that command, such as what the command does, aliases, what restrictions it has, and
-            examples.""", "usage": "(COMMAND NAME)"})
+            super(TravusBotBase._CustomHelp, self).__init__(
+                command_attrs={
+                    "help": """This command shows a list of categorized commands you have access to. If the name of
+                    a command is sent along it will show detailed help information for that command, such as what the
+                    command does, aliases, what restrictions it has, and examples.""",
+                    "usage": "(COMMAND NAME)",
+                }
+            )
 
         async def _send_help_entry(self, com_object):
             """Help function which sends help entry og single command. Factored out for DRYer code."""
@@ -369,13 +386,17 @@ class TravusBotBase(Bot):
         async with self.db.acquire() as conn:
             async with conn.transaction():
                 await conn.execute(
-                    "CREATE TABLE IF NOT EXISTS settings(key VARCHAR PRIMARY KEY NOT NULL, value VARCHAR)")
+                    "CREATE TABLE IF NOT EXISTS settings(key VARCHAR PRIMARY KEY NOT NULL, value VARCHAR)"
+                )
                 await conn.execute("CREATE TABLE IF NOT EXISTS default_modules(module VARCHAR PRIMARY KEY NOT NULL)")
-                await conn.execute("CREATE TABLE IF NOT EXISTS command_states(command VARCHAR PRIMARY KEY NOT NULL, "
-                                   "state INTEGER NOT NULL)")
+                await conn.execute(
+                    "CREATE TABLE IF NOT EXISTS command_states(command VARCHAR PRIMARY KEY NOT NULL, "
+                    "state INTEGER NOT NULL)"
+                )
                 await conn.execute("CREATE TABLE IF NOT EXISTS config(key VARCHAR PRIMARY KEY NOT NULL, value VARCHAR)")
                 await conn.execute(
-                    "INSERT INTO settings VALUES ('additional_credits', '') ON CONFLICT (key) DO NOTHING")
+                    "INSERT INTO settings VALUES ('additional_credits', '') ON CONFLICT (key) DO NOTHING"
+                )
                 await conn.execute("INSERT INTO settings VALUES ('bot_description', '') ON CONFLICT (key) DO NOTHING")
                 await conn.execute("INSERT INTO settings VALUES ('delete_messages', '0') ON CONFLICT (key) DO NOTHING")
                 await conn.execute("INSERT INTO settings VALUES ('prefix', '!') ON CONFLICT (key) DO NOTHING")
@@ -385,8 +406,9 @@ class TravusBotBase(Bot):
 
         self.prefix: Optional[str] = loaded_prefix or None
         self.delete_messages: int = int(delete_msgs) if delete_msgs is not None else 1
-        self.add_command_help([com for com in self.commands if com.name == "help"][0], "Core", None,
-                              ["", "about", "help"])  # Add help info for help command.
+        self.add_command_help(
+            [com for com in self.commands if com.name == "help"][0], "Core", None, ["", "about", "help"]
+        )  # Add help info for help command.
         for key, value in [(pair["key"], pair["value"]) for pair in config]:
             self.config[key] = value
 
@@ -450,18 +472,15 @@ class TravusBotBase(Bot):
             return self.prefix
         return f"@{self.user.display_name}#{self.user.discriminator} "
 
-    def check_dependencies(self, dependencies: List[str]):
-        """Checks if all dependencies are met. Raises DependencyError with the missing dependencies if not."""
-        if "core_commands" in dependencies and "core_commands" in self.extensions:  # core_commands is not in modules
-            dependencies.remove("core_commands")
-        for dependency in list(dependencies):
-            if f"modules.{dependency}" in self.extensions:
-                dependencies.remove(dependency)
-        if dependencies:
-            raise DependencyError(dependencies)
-
-    def add_module(self, name: str, author: str, usage: Callable[[], Union[str, Embed]] = None,
-                   description: str = None, additional_credits: str = None, image_link: str = None):
+    def add_module(
+        self,
+        name: str,
+        author: str,
+        usage: Callable[[], Union[str, Embed]] = None,
+        description: str = None,
+        additional_credits: str = None,
+        image_link: str = None,
+    ):
         """Function that is used to add module info to the bot correctly. Used to minimize developmental errors."""
         info = self._ModuleInfo(self.get_bot_prefix, name, author, usage, description, additional_credits, image_link)
         if name.lower() not in self.modules.keys():
@@ -490,8 +509,9 @@ class TravusBotBase(Bot):
             async with conn.transaction():
                 for command in self.commands:
                     cog_com_name = f"{command.cog.__class__.__name__ + '.' if command.cog else ''}{command.name}"
-                    command_state = await conn.fetchval("SELECT state FROM command_states WHERE command = $1;",
-                                                        cog_com_name)
+                    command_state = await conn.fetchval(
+                        "SELECT state FROM command_states WHERE command = $1;", cog_com_name
+                    )
                     if command_state is None:  # If a command has no state registered, set it to visible and enables.
                         command_state = (0,)
                         await conn.execute("INSERT INTO command_states VALUES ($1, $2)", cog_com_name, 0)
@@ -505,13 +525,19 @@ class TravusBotBase(Bot):
                         command.enabled = False
                         command.hidden = True
 
-    def add_command_help(self, command, category: str = "no category",
-                         restrictions: Dict[str, Union[List[str], str]] = None, examples: List[str] = None):
+    def add_command_help(
+        self,
+        command,
+        category: str = "no category",
+        restrictions: Dict[str, Union[List[str], str]] = None,
+        examples: List[str] = None,
+    ):
         """Function that is used to add help info to the bot correctly. Used to minimize developmental errors. Command
         should be either a command or a command group."""
         # The Command argument is currently not typed due to type checking issues in PyCharm, should be type 'Command'.
-        self.help[command.qualified_name] = self._HelpInfo(self.get_bot_prefix, command, category, restrictions,
-                                                           examples)
+        self.help[command.qualified_name] = self._HelpInfo(
+            self.get_bot_prefix, command, category, restrictions, examples
+        )
 
     def remove_command_help(self, command: Union[Command, Type[Cog], str, List[Union[Command, str]]]):
         """Function that is used to remove command help info from the bot correctly. Used to minimize developmental
@@ -539,14 +565,18 @@ class TravusBotBase(Bot):
             async with self.db.acquire() as conn:
                 bot_credits = await conn.fetchval("SELECT value FROM settings WHERE key = 'additional_credits'")
                 bot_desc = await conn.fetchval("SELECT value FROM settings WHERE key = 'bot_description'")
-            bot_author = ("[Travus](https://github.com/Travus):\n\tTravus Bot Base\n\tCore functions\n\n"
-                          "[Rapptz](https://github.com/Rapptz):\n\tDiscord.py")
+            bot_author = (
+                "[Travus](https://github.com/Travus):\n\tTravus Bot Base\n\tCore functions\n\n"
+                "[Rapptz](https://github.com/Rapptz):\n\tDiscord.py"
+            )
             bot_credits = (
-                bot_credits.replace("\\n", "\n").replace("\\r", "\n").replace("\\t", "\t") if bot_credits else None)
+                bot_credits.replace("\\n", "\n").replace("\\r", "\n").replace("\\t", "\t") if bot_credits else None
+            )
             bot_desc = bot_desc or "No description for the bot found. Set description with `botconfig` command."
             self.add_module(self.user.name, bot_author, None, bot_desc, bot_credits, self.user.avatar_url)
-        activity = (discord.Activity(type=discord.ActivityType.listening, name=f"prefix: {self.prefix}"
-                    if self.prefix else "pings only"))
+        activity = discord.Activity(
+            type=discord.ActivityType.listening, name=f"prefix: {self.prefix}" if self.prefix else "pings only"
+        )
         await self.change_presence(activity=activity)  # Display status message.
         self.is_connected = 1  # Flag that the bot is currently connected to Discord.
         self.log.info(f"{self.user.name} is ready!\n------------------------------")
@@ -573,24 +603,31 @@ class TravusBotBase(Bot):
 
     async def on_command_error(self, ctx: Context, error=None):
         """Global error handler for miscellaneous errors."""
-        if isinstance(error, (commands.NoPrivateMessage, commands.CommandOnCooldown, commands.DisabledCommand,
-                              commands.CheckFailure)):
+        if isinstance(
+            error,
+            (commands.NoPrivateMessage, commands.CommandOnCooldown, commands.DisabledCommand, commands.CheckFailure),
+        ):
             pass
         elif isinstance(error, commands.UserInputError):  # Send correct syntax based on command usage variable.
             if hasattr(ctx.command, "usage") and ctx.command.usage:
-                await ctx.send(f"Correct syntax: `{self.get_bot_prefix()}"
-                               f"{ctx.command.full_parent_name + ' ' if ctx.command.full_parent_name else ''}"
-                               f"{ctx.invoked_with} {ctx.command.usage or ''}`")
+                await ctx.send(
+                    f"Correct syntax: `{self.get_bot_prefix()}"
+                    f"{ctx.command.full_parent_name + ' ' if ctx.command.full_parent_name else ''}"
+                    f"{ctx.invoked_with} {ctx.command.usage or ''}`"
+                )
         elif isinstance(error, commands.NotOwner):  # Log to console.
             self.log.warning(f"{ctx.author.id}: Command '{ctx.command}' requires bot owner status")
         elif isinstance(error, commands.MissingPermissions):  # Log to console.
-            self.log.warning(f"{ctx.author.id}: Command '{ctx.command}' requires additional permissions: "
-                             f"{', '.join(error.missing_perms)}")
+            self.log.warning(
+                f"{ctx.author.id}: Command '{ctx.command}' requires additional permissions: "
+                f"{', '.join(error.missing_perms)}"
+            )
         elif isinstance(error, commands.MissingRole):  # Log to console.
             self.log.warning(f"{ctx.author.id}: Command '{ctx.command}' requires role: {error.missing_role}")
         elif isinstance(error, commands.MissingAnyRole):  # Log to console.
-            self.log.warning(f"{ctx.author.id}: Command '{ctx.command}' requires role: "
-                             f"{' or '.join(error.missing_roles)}")
+            self.log.warning(
+                f"{ctx.author.id}: Command '{ctx.command}' requires role: " f"{' or '.join(error.missing_roles)}"
+            )
         elif isinstance(error, commands.CommandNotFound):  # Log to console.
             self.log.warning(f"{ctx.author.id}: {error}")
         elif isinstance(error, CCError):  # Log to console if message wasn't properly sent to Discord.
@@ -674,12 +711,17 @@ def clean(ctx: Context, text: str, escape_markdown: bool = True, replace_backtic
         member = ctx.bot.get_user(_id)
         return "@" + member.name if member else "@deleted-user"
 
-    transformations.update(("<@%s>" % member_id, resolve_member(member_id)) for member_id
-                           in [int(x) for x in findall(r"<@!?([0-9]+)>", text)])
-    transformations.update(("<@!%s>" % member_id, resolve_member(member_id)) for member_id
-                           in [int(x) for x in findall(r"<@!?([0-9]+)>", text)])
+    transformations.update(
+        ("<@%s>" % member_id, resolve_member(member_id))
+        for member_id in [int(x) for x in findall(r"<@!?([0-9]+)>", text)]
+    )
+    transformations.update(
+        ("<@!%s>" % member_id, resolve_member(member_id))
+        for member_id in [int(x) for x in findall(r"<@!?([0-9]+)>", text)]
+    )
 
     if ctx.guild:
+
         def resolve_channel(_id):
             """Resolves channel mentions."""
             ch = ctx.guild.get_channel(_id)
@@ -691,8 +733,9 @@ def clean(ctx: Context, text: str, escape_markdown: bool = True, replace_backtic
             return "@" + role.name if role else "@deleted-role"
 
         transformations.update(resolve_channel(channel) for channel in [int(x) for x in findall(r"<#([0-9]+)>", text)])
-        transformations.update(("<@&%s>" % role_id, resolve_role(role_id))
-                               for role_id in [int(x) for x in findall(r"<@&([0-9]+)>", text)])
+        transformations.update(
+            ("<@&%s>" % role_id, resolve_role(role_id)) for role_id in [int(x) for x in findall(r"<@&([0-9]+)>", text)]
+        )
 
     def repl(obj):
         """Function used in regex substitution."""
@@ -708,11 +751,11 @@ def clean(ctx: Context, text: str, escape_markdown: bool = True, replace_backtic
 
 
 def clean_no_ctx(
-        bot: TravusBotBase,
-        guild: Optional[discord.Guild],
-        text: str,
-        escape_markdown: bool = True,
-        replace_backticks: bool = False
+    bot: TravusBotBase,
+    guild: Optional[discord.Guild],
+    text: str,
+    escape_markdown: bool = True,
+    replace_backticks: bool = False,
 ) -> str:
     """Cleans text, escaping mentions and markdown. Tries to change mentions to text. Works without context."""
     message = SimpleNamespace(guild=guild, _state=None)
