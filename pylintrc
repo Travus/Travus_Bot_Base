@@ -1,0 +1,44 @@
+[BASIC]
+attr-name-hint=[a-z_][a-z0-9_]{1,30}$
+attr-rgx=[a-z_][a-z0-9_]{1,30}$
+good-names=i,j,e,_
+variable-name-hint=[a-z_][a-z0-9_]{1,30}$
+variable-rgx=[a-z_][a-z0-9_]{1,30}$
+
+[FORMAT]
+indent-string='    '
+max-line-length=120
+max-module-lines=1000
+
+[SIMILARITIES]
+ignore-comments=yes
+ignore-docstrings=yes
+ignore-imports=yes
+min-similarity-lines=4
+
+[LOGGING]
+logging-modules=logging
+
+[ELIF]
+max-nested-blocks=5
+
+[DESIGN]
+max-args=8
+max-attributes=15
+max-bool-expr=5
+max-branches=12
+max-locals=15
+max-parents=4
+max-returns=5
+max-statements=50
+
+[MESSAGES CONTROL]
+disable=arguments-renamed,
+        broad-except,
+        consider-using-sys-exit,
+        fixme,
+        logging-fstring-interpolation,
+        missing-module-docstring,
+        raise-missing-from,
+        too-few-public-methods,
+        too-many-public-methods,

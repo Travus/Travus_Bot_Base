@@ -1,6 +1,7 @@
 import logging
 import os  # To check directory contents and make directories.
 from asyncio import get_event_loop
+from typing import Tuple
 
 import requests
 import yaml
@@ -17,7 +18,7 @@ async def get_prefix(bot_object, message):
     return commands.when_mentioned(bot_object, message)  # There is no prefix set.
 
 
-def get_bot(logger: logging.Logger) -> (tbb.TravusBotBase, str):
+def get_bot(logger: logging.Logger) -> Tuple[tbb.TravusBotBase, str]:
     """Check required files and directories are in place, and set up bot. Returns bot and token."""
     config_options = ["discord_token", "pg_address", "pg_database", "pg_password", "pg_port", "pg_user"]
 
@@ -28,9 +29,9 @@ def get_bot(logger: logging.Logger) -> (tbb.TravusBotBase, str):
     if "config.yml" not in os.listdir("."):
         logger.critical("Please run setup.py first!")
         exit(5)
-    with open("config.yml", "r") as config:
-        config = yaml.safe_load(config)
-        if not all([element in config.keys() and config[element] is not None for element in config_options]):
+    with open("config.yml", "r") as config_object:
+        config = yaml.safe_load(config_object)
+        if not all(element in config.keys() and config[element] is not None for element in config_options):
             logger.critical("Config was found, but lacked required options. Please run setup.py first.")
             exit(5)
 
