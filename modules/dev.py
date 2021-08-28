@@ -44,13 +44,13 @@ async def mystbin_send(text: str, line_length: int = None) -> Optional[str]:
     if text is not None:
         if line_length:
             lines = text.split("\n")
-            for n in range(len(lines)):
-                if len(lines[n]) > line_length:
-                    wrapped = wrap(lines[n], width=line_length)
-                    lines[n] = ""
+            for line in lines:
+                if len(line) > line_length:
+                    wrapped = wrap(line, width=line_length)
+                    line = ""
                     for w_line in wrapped[:-1]:
-                        lines[n] += f"{w_line} ↩\n"
-                    lines[n] += wrapped[-1]
+                        line += f"{w_line} ↩\n"
+                    line += wrapped[-1]
             text = "\n".join(lines)
         async with ClientSession() as session:
             key = (await (await session.post("https://mystb.in/documents", data=text.encode())).json())["key"]
@@ -68,18 +68,18 @@ class DevCog(commands.Cog):
         self._last_result = None
 
     @staticmethod
-    async def _mystbin_send(ctx: commands.Context, text: str):
+    async def _mystbin_send(ctx: commands.Context, text: str = None):
         """Send the text if it's short enough, otherwise links to a Mystbin of the text."""
         if text is not None:
             if len(text) > 1950:
                 lines = text.split("\n")
-                for n in range(len(lines)):
-                    if len(lines[n]) > 198:
-                        wrapped = wrap(lines[n], width=198)
-                        lines[n] = ""
+                for line in lines:
+                    if len(lines) > 198:
+                        wrapped = wrap(line, width=198)
+                        line = ""
                         for w_line in wrapped[:-1]:
-                            lines[n] += f"{w_line} ↩\n"
-                        lines[n] += wrapped[-1]
+                            line += f"{w_line} ↩\n"
+                        line += wrapped[-1]
                 text = "\n".join(lines)
                 async with aiohttp.ClientSession() as session:
                     key = (await (await session.post("https://mystb.in/documents", data=text.encode())).json())["key"]
@@ -131,7 +131,7 @@ class DevCog(commands.Cog):
                "message": ctx.message, "_": self._last_result}
         env.update(globals())
         try:
-            exec(f'async def function():\n{indent(self.cleanup_code(body), "  ")}', env)
+            exec(f"async def function():\n{indent(self.cleanup_code(body), '  ')}", env)  # pylint: disable=exec-used
         except Exception as e:
             response = f"{e.__class__.__name__}: {e}"
             return await self._mystbin_send(ctx, response)
@@ -145,11 +145,11 @@ class DevCog(commands.Cog):
         else:
             value = stdout.getvalue()
             if ret is None:
-                response = value or None
+                response = value
             else:
                 self._last_result = ret
                 response = f"{value}{ret}"
-        await self._mystbin_send(ctx, response)
+        await self._mystbin_send(ctx, response or None)
 
     @commands.is_owner()
     @commands.guild_only()
@@ -159,7 +159,7 @@ class DevCog(commands.Cog):
         skipped and the bot fails to parse the argument as a channel it will ignore the channel argument and move on to
         parsing the command instead. In this case the command will be sent from the channel you are currently in."""
         if isinstance(channel, Member):
-            await ctx.send("Cannot sudo into DMs. ")
+            await ctx.send("Cannot sudo into DMs.")
             return
         new_ctx = copy(ctx.message)
         new_ctx.channel = channel or ctx.channel

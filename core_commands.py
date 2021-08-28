@@ -64,34 +64,47 @@ class CoreFunctionalityCog(commands.Cog):
 
     async def _module_operation(self, ctx: commands.Context, operation: str, mod: str):
         """To avoid code duplication in the except blocks all module command functionality is grouped together."""
+
+        async def load():
+            """Contains the logic for loading a module."""
+            if f"{mod}.py" in listdir("modules"):
+                self.bot.load_extension(f"modules.{mod}")
+                await self.bot.update_command_states()
+                await ctx.send(f"Module `{mod_name}` successfully loaded.")
+                self.log.info(f"{ctx.author.id}: loaded '{mod}' module.")
+            else:
+                await ctx.send(f"No `{mod_name}` module was found.")
+
+        async def unload():
+            """Contains the logic for unloading a module."""
+            self.bot.unload_extension(f"modules.{mod}")
+            await ctx.send(f"Module `{mod_name}` successfully unloaded.")
+            self.log.info(f"{ctx.author.id}: unloaded '{mod}' module.")
+
+        async def reload():
+            """Contains the logic for reloading a module."""
+            if f"{mod}.py" in listdir("modules"):
+                self.bot.reload_extension(f"modules.{mod}")
+                await self.bot.update_command_states()
+                await ctx.send(f"Module `{mod_name}` successfully reloaded.")
+                self.log.info(f"{ctx.author.id}: reloaded '{mod}' module.")
+            else:
+                if mod in self.bot.modules:
+                    await ctx.send(f"The `{mod_name}` module file is no longer found on disk. Reload canceled.")
+                else:
+                    await ctx.send(f"No `{mod_name}` module was found.")
+
         old_help = dict(self.bot.help)  # Save old help and module info in we need to roll back.
         old_modules = dict(self.bot.modules)
         self.bot.extension_ctx = ctx  # Save context in case loaded module has use for it.
         mod_name = clean(ctx, mod, False, True)
         try:
-            if operation == "load":  # Try loading the module.
-                if f"{mod}.py" in listdir("modules"):  # Check if module is there to differentiate errors more easily.
-                    self.bot.load_extension(f"modules.{mod}")
-                    await self.bot.update_command_states()
-                    await ctx.send(f"Module `{mod_name}` successfully loaded.")
-                    self.log.info(f"{ctx.author.id}: loaded '{mod}' module.")
-                else:
-                    await ctx.send(f"No `{mod_name}` module was found.")
+            if operation == "load":
+                await load()
             elif operation == "unload":
-                self.bot.unload_extension(f"modules.{mod}")
-                await ctx.send(f"Module `{mod_name}` successfully unloaded.")
-                self.log.info(f"{ctx.author.id}: unloaded '{mod}' module.")
-            elif operation == "reload":  # Try reloading the module.
-                if f"{mod}.py" in listdir("modules"):  # Check if module is even still there before we reload.
-                    self.bot.reload_extension(f"modules.{mod}")
-                    await self.bot.update_command_states()
-                    await ctx.send(f"Module `{mod_name}` successfully reloaded.")
-                    self.log.info(f"{ctx.author.id}: reloaded '{mod}' module.")
-                else:
-                    if mod in self.bot.modules:
-                        await ctx.send(f"The `{mod_name}` module file is no longer found on disk. Reload canceled.")
-                    else:
-                        await ctx.send(f"No `{mod_name}` module was found.")
+                await unload()
+            elif operation == "reload":
+                await reload()
         except commands.ExtensionAlreadyLoaded:  # If module was already loaded.
             await ctx.send(f"The `{mod_name}` module was already loaded.")
         except commands.ExtensionNotLoaded:  # If module wasn't loaded to begin with.
@@ -237,10 +250,10 @@ class CoreFunctionalityCog(commands.Cog):
         loaded_modules[-1] = loaded_modules[-1][:-2]
         available_modules[-1] = available_modules[-1][:-2]
         paginator = commands.Paginator(prefix="", suffix="", linesep="")
-        paginator.add_line(f"Loaded modules: ")
+        paginator.add_line("Loaded modules: ")
         for mod in loaded_modules:
             paginator.add_line(mod)
-        paginator.add_line(f"\nAvailable Modules: ")
+        paginator.add_line("\nAvailable Modules: ")
         for mod in available_modules:
             paginator.add_line(mod)
         for page in paginator.pages:

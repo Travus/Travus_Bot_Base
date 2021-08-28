@@ -52,12 +52,12 @@ def required_config(requirements: Iterable[str]):
 
     async def predicate(predicate_ctx: Context) -> bool:
         missing = [f"`{requirement}`" for requirement in requirements if requirement not in predicate_ctx.bot.config]
-        missing = ", ".join(missing)[:1850]
-        if missing:
+        missing_str = ", ".join(missing)[:1850]
+        if missing_str:
             await predicate_ctx.send(f"This command requires the following missing configuration options to be set: "
-                                     f"{missing}.\nPlease contact an administrator for assistance.")
-            raise ConfigError(f"Command {predicate_ctx.command.qualified_name} missing config options: {missing}")
-        return not missing
+                                     f"{missing_str}.\nPlease contact an administrator for assistance.")
+            raise ConfigError(f"Command {predicate_ctx.command.qualified_name} missing config options: {missing_str}")
+        return not missing_str
     return commands.check(predicate)
 
 
@@ -144,7 +144,7 @@ class TravusBotBase(Bot):
         """Class that holds help info for commands."""
 
         def __init__(self, get_prefix: Callable, command: Command, category: str = "no category",
-                     restrictions: Dict[str, Union[bool, List[str], str]] = None, examples: List[str] = None):
+                     restrictions: Dict[str, Union[List[str], str]] = None, examples: List[str] = None):
             """Initialization function loading all necessary information for HelpInfo class."""
             res = restrictions  # Shortening often used variable name.
             self.get_prefix = get_prefix
@@ -292,7 +292,7 @@ class TravusBotBase(Bot):
             full_mapping = []  # Command list.
             for com_mapping in mapping.values():
                 full_mapping.extend(com_mapping)  # Add all cogs to list.
-            full_mapping = set([com for com in full_mapping if com.enabled and not com.hidden])
+            full_mapping = {com for com in full_mapping if com.enabled and not com.hidden}
             await self._send_command_list(full_mapping)
 
         async def send_command_help(self, command_object: Command):
@@ -303,7 +303,7 @@ class TravusBotBase(Bot):
 
         async def send_cog_help(self, cog: Cog):
             """Function that triggers when help command is used with a cog."""
-            full_mapping = set([com for com in cog.get_commands() if com.enabled and not com.hidden])
+            full_mapping = {com for com in cog.get_commands() if com.enabled and not com.hidden}
             await self._send_command_list(full_mapping)
 
         async def send_group_help(self, group):
@@ -312,11 +312,11 @@ class TravusBotBase(Bot):
                 group = group.parents[0]  # Get parent in case it has help text.
             await self._send_help_entry(group)
 
-        async def subcommand_not_found(self, command, string):
+        def subcommand_not_found(self, command, string):
             """Function that returns content of error when subcommand invalid."""
             return f"The `{command.qualified_name}` command has no subcommand called `{string}`."
 
-        async def command_not_found(self, string):
+        def command_not_found(self, string):
             """Function that returns content of error when command not found."""
             return f"No command called `{string}` found."
 
@@ -448,8 +448,7 @@ class TravusBotBase(Bot):
         """Returns the current bot prefix, or a mention of the bot in text form followed by a space."""
         if self.prefix is not None:
             return self.prefix
-        else:
-            return f"@{self.user.display_name}#{self.user.discriminator} "
+        return f"@{self.user.display_name}#{self.user.discriminator} "
 
     def check_dependencies(self, dependencies: List[str]):
         """Checks if all dependencies are met. Raises DependencyError with the missing dependencies if not."""
@@ -510,7 +509,7 @@ class TravusBotBase(Bot):
                          restrictions: Dict[str, Union[List[str], str]] = None, examples: List[str] = None):
         """Function that is used to add help info to the bot correctly. Used to minimize developmental errors. Command
         should be either a command or a command group."""
-        # Command is currently not typed due to type checking issues in PyCharm, should be Command.
+        # The Command argument is currently not typed due to type checking issues in PyCharm, should be type 'Command'.
         self.help[command.qualified_name] = self._HelpInfo(self.get_bot_prefix, command, category, restrictions,
                                                            examples)
 
@@ -609,27 +608,25 @@ def parse_time(duration: str, minimum: int = None, maximum: int = None, error_on
     occur or the max / min value should be used when these are exceeded."""
     last, t_total = 0, 0
     t_frames = {"w": 604800, "d": 86400, "h": 3600, "m": 60, "s": 1}
-    for c in range(len(duration)):  # For every character in time string.
-        if duration[c].lower() in t_frames.keys():
-            if duration[last:c] != "":
-                t_total += int(duration[last:c]) * t_frames[duration[c].lower()]
-            last = c + 1
-        elif duration[c] not in ["+", "-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]:  # Valid characters.
+    for index, char in enumerate(duration):  # For every character in time string.
+        if char.lower() in t_frames.keys():
+            if duration[last:index] != "":
+                t_total += int(duration[last:index]) * t_frames[char.lower()]
+            last = index + 1
+        elif char not in ["+", "-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]:  # Valid characters.
             raise ValueError("Invalid character encountered during time parsing.")
     if minimum and t_total < minimum:  # If total time is less than minimum.
         if error_on_exceeded:
             raise ValueError("Time too short.")
-        else:
-            t_total = minimum
+        t_total = minimum
     if maximum and t_total > maximum:  # If total time is more than maximum.
         if error_on_exceeded:
             raise ValueError("Time too long.")
-        else:
-            t_total = maximum
+        t_total = maximum
     return t_total
 
 
-async def send_in_global_channel(ctx: Context, channel: GlobalTextChannel, msg: str, other_dms: bool = False):
+async def send_in_global_channel(ctx: Context, channel: Optional[GlobalTextChannel], msg: str, other_dms: bool = False):
     """Sends a message in any text channel across servers and DMs. Has flag to allow sending to foreign DMs."""
     try:
         if isinstance(channel, (User, Member)) and channel.id != ctx.author.id and not other_dms:
@@ -670,12 +667,12 @@ async def del_message(msg: Message):
 
 def clean(ctx: Context, text: str, escape_markdown: bool = True, replace_backticks: bool = False) -> str:
     """Cleans text, escaping mentions and markdown. Tries to change mentions to text."""
-    transformations = {}
+    transformations: Dict[str, str] = {}
 
     def resolve_member(_id):
         """Resolves user mentions."""
-        m = ctx.bot.get_user(_id)
-        return '@' + m.name if m else '@deleted-user'
+        member = ctx.bot.get_user(_id)
+        return "@" + member.name if member else "@deleted-user"
 
     transformations.update(("<@%s>" % member_id, resolve_member(member_id)) for member_id
                            in [int(x) for x in findall(r"<@!?([0-9]+)>", text)])
@@ -690,8 +687,8 @@ def clean(ctx: Context, text: str, escape_markdown: bool = True, replace_backtic
 
         def resolve_role(_id):
             """Resolves role mentions."""
-            r = ctx.guild.get_role(_id)
-            return '@' + r.name if r else '@deleted-role'
+            role = ctx.guild.get_role(_id)
+            return "@" + role.name if role else "@deleted-role"
 
         transformations.update(resolve_channel(channel) for channel in [int(x) for x in findall(r"<#([0-9]+)>", text)])
         transformations.update(("<@&%s>" % role_id, resolve_role(role_id))
@@ -701,7 +698,7 @@ def clean(ctx: Context, text: str, escape_markdown: bool = True, replace_backtic
         """Function used in regex substitution."""
         return transformations.get(obj.group(0), "")
 
-    pattern = compile('|'.join(transformations.keys()))
+    pattern = re_cmp("|".join(transformations.keys()))
     result = pattern.sub(repl, text)
     if escape_markdown:
         result = utils.escape_markdown(result)
@@ -730,7 +727,7 @@ def unembed_urls(text: str) -> str:
         """Function used in regex substitution."""
         return f"<{obj.group(0).strip('<').strip('>')}>"
 
-    ptrn = compile(r"(\b|<)https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_+.~#?&\\/=]*)>?")
+    ptrn = re_cmp(r"(\b|<)https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_+.~#?&\\/=]*)>?")
     text = ptrn.sub(repl, text)
     return text
 
