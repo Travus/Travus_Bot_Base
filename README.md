@@ -3,19 +3,13 @@
 </p>
 <br/>
 <p align="center">
-    <img alt="Python Version" src="https://img.shields.io/badge/python-3.6%20%7C%203.7%20%7C%203.8%20%7C%203.9-informational"/>
+    <img alt="Python Version" src="https://img.shields.io/badge/python-3.10-informational"/>
     <img alt="CI Status" src="https://github.com/Travus/Travus_Bot_Base/actions/workflows/ci.yml/badge.svg?branch=master&event=push">
     <img alt="TBB License" src="https://img.shields.io/github/license/travus/travus_bot_base">
     <img alt="Code Style Black" src="https://img.shields.io/badge/code%20style-black-000000.svg">
     <img alt="MyPy Checked" src="http://www.mypy-lang.org/static/mypy_badge.svg">
 </p>
 <br/><br/>
-
-> **IMPORTANT NOTICE**
-> 
-> On the 28th of August it was announced that the [discord.py](https://github.com/Rapptz/discord.py) project has been shut down effective immediately, and that no more mainline development would occur. (Read more about this [here](https://gist.github.com/Rapptz/4a2f62751b9600a31a0d3c78100287f1).) Following this various other projects such as [Wavelink](https://github.com/PythonistaGuild/Wavelink) that rely on discord.py have also shut down development.
-> 
-> I will continue monitoring this situation, and have yet to decide how to continue from here. For now the Travus Bot Base will work with existing versions of discord.py. If a fork of discord.py takes over or the Bot base shifts to a different underlying library is yet to be decided upon. At current development of the Travus Bot Base is not intended to stop, but significant changes might be necessary.
 
 This is the Travus Bot Base, a basic starting point for Discord bots using [discord.py](https://github.com/Rapptz/discord.py). The bot comes with all the basic functionality you need and is intended to be further extended with functionality specific to your needs. The basic included functionality is managing prefix, hiding and disabling commands, easily generating rich help entries for commands and displaying information about the bot. The main draw of the Travus Bot Base framework is its easy extendability. The bot can technically work in multiple servers at once, but this is not intended as all settings and modules will be global across all servers. To run the bot with independent settings in different servers, run multiple separate instances of it.
 
@@ -40,7 +34,7 @@ The intended use-case for this bot base is to be used by small to medium servers
 <br/>
 
 **Requirements:**
-* [Python](https://www.python.org/) 3.6 or newer.  
+* [Python](https://www.python.org/) 3.10 or newer.  
 * **Option A**: [Docker](https://www.docker.com/) and [docker-compose](https://docs.docker.com/compose/)  
 * **Option B**: An existing [PostgreSQL database](https://www.postgresql.org/)
 
@@ -72,7 +66,7 @@ To start the bot simply run: `docker-compose up --build -d`
 To stop the bot simply run: `docker-compose down`  
 
 *Option B*:  
-To start the bot simply run `main.py` in Python 3.6 or newer.  
+To start the bot simply run `main.py` in Python 3.10 or newer.  
 To stop the bot simply interrupt the program with `ctrl + c` or by closing the terminal.
 
 **6: Configure the Bot (Optional)**  
