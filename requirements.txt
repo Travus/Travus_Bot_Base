@@ -1,4 +1,4 @@
-discord.py>=1.5.1
+git+https://github.com/Rapptz/discord.py@c2391cf6
 pyyaml
 requests
 asyncpg
