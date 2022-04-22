@@ -1,31 +1,18 @@
 import datetime  # To get current time.
 import logging
 import os
-from asyncio import sleep as asleep
 from copy import copy  # To copy context in help command.
 from re import compile as re_cmp, findall  # Regex functions used in clean function for detecting mentions.
 from types import SimpleNamespace
-from typing import Dict, Iterable, List, Union, Optional, Callable, Type  # For type-hinting.
+from typing import Callable, Dict, Iterable, List, Optional, Type, Union  # For type-hinting.
 
 import asyncpg
 import discord
 from aiohttp import ClientConnectorError as CCError  # To detect connection errors.
-from discord import (
-    utils,
-    Forbidden,
-    Embed,
-    Message,
-    User,
-    Member,
-    TextChannel,
-    VoiceChannel,
-    CategoryChannel,
-    StoreChannel,
-    StageChannel,
-    GroupChannel,
-)
+from discord import (CategoryChannel, Embed, Forbidden, GroupChannel, Member, Message, StageChannel, TextChannel, User,
+                     VoiceChannel, utils)
 from discord.ext import commands
-from discord.ext.commands import Command, Cog, Bot, Context
+from discord.ext.commands import Bot, Cog, Command, Context
 
 
 class DependencyError(commands.CommandError):
@@ -91,7 +78,7 @@ class GlobalChannel(commands.Converter):
 
     async def convert(
         self, ctx: Context, channel: str
-    ) -> Union[TextChannel, VoiceChannel, StoreChannel, StageChannel, CategoryChannel, GroupChannel, User]:
+    ) -> Union[TextChannel, VoiceChannel, StageChannel, CategoryChannel, GroupChannel, User]:
         """Converter method used by discord.py."""
         if isinstance(channel, str) and channel.lower() in ["here", "."]:
             return ctx.channel  # Get current channel if asked for.
@@ -347,9 +334,10 @@ class TravusBotBase(Bot):
             """Function that returns content of error when command not found."""
             return f"No command called `{string}` found."
 
-    def __init__(self, db_credentials: DatabaseCredentials, *args, **kwargs):
+    def __init__(self, database_credentials: DatabaseCredentials, *args, **kwargs):
         """Initialization function loading all necessary information for TravusBotBase class."""
         super().__init__(*args, **kwargs)
+        self.db: Optional[asyncpg.Pool] = None
         self.log = BOT_LOG
         self.last_module_error: Optional[str] = None
         self.last_error: Optional[str] = None
@@ -359,37 +347,7 @@ class TravusBotBase(Bot):
         self.is_connected: int = 0
         self.help_command = self._CustomHelp()
         self.config: Dict[str, str] = {}
-        self.loop.run_until_complete(self._db_connect(db_credentials))
-        self.loop.run_until_complete(self._load_db_options())
-        self.loop.run_until_complete(self._load_default_commands())
-        self.loop.create_task(self._load_default_modules())  # Waits for bot to be ready, only completes after __init__
-
-    async def _db_connect(self, credentials: DatabaseCredentials, retries: int = 5):
-        """Attempt to connect to database."""
-        while retries:
-            try:
-                db_pool = await asyncpg.create_pool(**credentials.get_credentials())
-                self.db: asyncpg.pool.Pool = db_pool
-                break
-            except asyncpg.exceptions.InvalidCatalogNameError:
-                self.log.error("Error: Failed to connect to database. Database name not found.")
-                retries -= 1
-                await asleep(5)
-            except asyncpg.exceptions.InvalidPasswordError:
-                self.log.error("Error: Failed to connect to database. Username or password incorrect.")
-                retries -= 1
-                await asleep(5)
-            except OSError:
-                self.log.error("Error: Failed to connect to database. Connection error.")
-                retries -= 1
-                await asleep(5)
-            except Exception as e:
-                self.log.error(f"Error: {e}")
-                retries -= 1
-                await asleep(5)
-        if not retries:
-            self.log.critical("Failed to connect to database.")
-            exit(1)
+        self._db_creds = database_credentials
 
     async def _load_db_options(self):
         """Create, set up and query database for info. Create default values if database is empty."""
@@ -426,7 +384,7 @@ class TravusBotBase(Bot):
         """Load the default commands from core_commands.py"""
         try:
             if "core_commands.py" in os.listdir("."):
-                self.load_extension("core_commands")
+                await self.load_extension("core_commands")
                 await self.update_command_states()
             else:
                 raise FileNotFoundError("Core commands file not found.")
@@ -444,7 +402,7 @@ class TravusBotBase(Bot):
     async def _load_default_modules(self):
         """Load default modules once bot has cached."""
 
-        def load_module(default_list: List[str], module: str, propagate=False) -> bool:
+        async def load_module(default_list: List[str], module: str, propagate=False) -> bool:
             """Attempt to load a module, and recursively attempts to loads dependencies."""
             if module not in default_list:
                 return False
@@ -455,7 +413,7 @@ class TravusBotBase(Bot):
             self.extension_ctx = None
             try:  # Try loading default module.
                 if f"{module}.py" in os.listdir("modules"):
-                    self.load_extension(f"modules.{module}")
+                    await self.load_extension(f"modules.{module}")
                 else:
                     raise FileNotFoundError("Core commands file not found.")
             except FileNotFoundError:  # If module wasn't found.
@@ -500,12 +458,31 @@ class TravusBotBase(Bot):
         await self.wait_until_ready()  # Wait until object cashing is done.
 
         for mod in list(default_modules):
-            load_module(default_modules, mod)
+            await load_module(default_modules, mod)
         await self.update_command_states()  # Make sure commands are in the right state. (hidden, disabled)
+
+    async def start(self, token: str, *, reconnect: bool = True):
+        """Connect to the database and load default data, commands and modules."""
+        try:
+            async with asyncpg.create_pool(**self._db_creds.get_credentials()) as pool:
+                self.db: asyncpg.pool.Pool = pool
+                await self._load_db_options()
+                await self._load_default_commands()
+                await self._load_default_modules()  # Waits for bot to be ready
+                await super(TravusBotBase, self).start(token, reconnect=reconnect)
+        except asyncpg.exceptions.InvalidCatalogNameError:
+            self.log.critical("Error: Failed to connect to database. Database name not found.")
+        except asyncpg.exceptions.InvalidPasswordError:
+            self.log.critical("Error: Failed to connect to database. Username or password incorrect.")
+        except OSError:
+            self.log.critical("Error: Failed to connect to database. Connection error.")
+        except Exception as e:
+            self.log.critical(f"Error: {e}")
 
     async def close(self):
         """Coses the bot and the database connections."""
-        await self.db.close()
+        if "db" in self.__dict__ and self.db is not None:
+            await self.db.close()
         await super().close()
 
     def get_bot_prefix(self) -> str:
@@ -626,7 +603,7 @@ class TravusBotBase(Bot):
                 bot_credits.replace("\\n", "\n").replace("\\r", "\n").replace("\\t", "\t") if bot_credits else None
             )
             bot_desc = bot_desc or "No description for the bot found. Set description with `botconfig` command."
-            self.add_module(self.user.name, bot_author, None, bot_desc, bot_credits, self.user.avatar_url)
+            self.add_module(self.user.name, bot_author, None, bot_desc, bot_credits, self.user.avatar)
         activity = discord.Activity(
             type=discord.ActivityType.listening, name=f"prefix: {self.prefix}" if self.prefix else "pings only"
         )
