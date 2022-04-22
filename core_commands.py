@@ -3,16 +3,16 @@ from asyncio import sleep as asleep  # For waiting asynchronously.
 from os import listdir  # To check files on disk.
 
 from asyncpg import IntegrityConstraintViolationError  # To check for database conflicts.
-from discord import Embed, Activity, ActivityType  # For bot status
+from discord import Activity, ActivityType, Embed  # For bot status
 from discord.ext import commands  # For implementation of bot commands.
 
 import travus_bot_base as tbb  # TBB functions and classes.
 from travus_bot_base import clean  # Shorthand for cleaning output.
 
 
-def setup(bot: tbb.TravusBotBase):
+async def setup(bot: tbb.TravusBotBase):
     """Setup function ran when module is loaded."""
-    bot.add_cog(CoreFunctionalityCog(bot))  # Add cog and command help info.
+    await bot.add_cog(CoreFunctionalityCog(bot))  # Add cog and command help info.
     bot.add_command_help(CoreFunctionalityCog.botconfig_prefix, "Core", None, ["$", "bot!", "bot ?", "remove"])
     bot.add_command_help(CoreFunctionalityCog.botconfig_deletemessages, "Core", None, ["enable", "y", "disable", "n"])
     bot.add_command_help(CoreFunctionalityCog.module_list, "Core", {"perms": ["Administrator"]}, [""])
@@ -56,9 +56,9 @@ def setup(bot: tbb.TravusBotBase):
     )
 
 
-def teardown(bot: tbb.TravusBotBase):
+async def teardown(bot: tbb.TravusBotBase):
     """Teardown function ran when module is unloaded."""
-    bot.remove_cog("CoreFunctionalityCog")  # Remove cog and command help info.
+    await bot.remove_cog("CoreFunctionalityCog")  # Remove cog and command help info.
     bot.remove_command_help(CoreFunctionalityCog)
 
 
@@ -77,7 +77,7 @@ class CoreFunctionalityCog(commands.Cog):
         async def load():
             """Contains the logic for loading a module."""
             if f"{mod}.py" in listdir("modules"):
-                self.bot.load_extension(f"modules.{mod}")
+                await self.bot.load_extension(f"modules.{mod}")
                 await self.bot.update_command_states()
                 await ctx.send(f"Module `{mod_name}` successfully loaded.")
                 self.log.info(f"{ctx.author.id}: loaded '{mod}' module.")
@@ -86,14 +86,14 @@ class CoreFunctionalityCog(commands.Cog):
 
         async def unload():
             """Contains the logic for unloading a module."""
-            self.bot.unload_extension(f"modules.{mod}")
+            await self.bot.unload_extension(f"modules.{mod}")
             await ctx.send(f"Module `{mod_name}` successfully unloaded.")
             self.log.info(f"{ctx.author.id}: unloaded '{mod}' module.")
 
         async def reload():
             """Contains the logic for reloading a module."""
             if f"{mod}.py" in listdir("modules"):
-                self.bot.reload_extension(f"modules.{mod}")
+                await self.bot.reload_extension(f"modules.{mod}")
                 await self.bot.update_command_states()
                 await ctx.send(f"Module `{mod_name}` successfully reloaded.")
                 self.log.info(f"{ctx.author.id}: reloaded '{mod}' module.")

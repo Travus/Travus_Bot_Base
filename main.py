@@ -1,7 +1,6 @@
+import asyncio
 import logging
 import os  # To check directory contents and make directories.
-from asyncio import get_event_loop
-from typing import Tuple
 
 import requests
 import yaml
@@ -18,7 +17,7 @@ async def get_prefix(bot_object, message):
     return commands.when_mentioned(bot_object, message)  # There is no prefix set.
 
 
-def get_bot(logger: logging.Logger) -> Tuple[tbb.TravusBotBase, str]:
+async def main(logger: logging.Logger):
     """Check required files and directories are in place, and set up bot. Returns bot and token."""
     config_options = ["discord_token", "pg_address", "pg_database", "pg_password", "pg_port", "pg_user"]
 
@@ -31,7 +30,7 @@ def get_bot(logger: logging.Logger) -> Tuple[tbb.TravusBotBase, str]:
         exit(5)
     with open("config.yml", "r", encoding="utf8") as config_object:
         config = yaml.safe_load(config_object)
-        if not all(element in config.keys() and config[element] is not None for element in config_options):
+        if not all(element in config and config[element] is not None for element in config_options):
             logger.critical("Config was found, but lacked required options. Please run setup.py first.")
             exit(5)
 
@@ -51,17 +50,13 @@ def get_bot(logger: logging.Logger) -> Tuple[tbb.TravusBotBase, str]:
         database=config["pg_database"],
     )
     discord_token = config["discord_token"]
-    return tbb.TravusBotBase(command_prefix=get_prefix, intents=intent, db_credentials=db_credentials), discord_token
+    bot = tbb.TravusBotBase(db_credentials, command_prefix=get_prefix, intents=intent)
+    await bot.start(discord_token)
 
 
 if __name__ == "__main__":
     logging.basicConfig(format="%(asctime)s %(name)s %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
     log = logging.getLogger("main")
     log.setLevel(logging.INFO)
-    bot, token = get_bot(log)
     log.info("Starting bot...")
-    try:
-        get_event_loop().run_until_complete(bot.start(token))
-    except KeyboardInterrupt:
-        get_event_loop().run_until_complete(bot.close())
-        log.info("Bot closed due to KeyboardInterrupt.")
+    asyncio.run(main(log))

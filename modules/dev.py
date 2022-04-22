@@ -13,9 +13,9 @@ from discord.ext import commands  # For implementation of bot commands.
 import travus_bot_base as tbb  # TBB functions and classes.
 
 
-def setup(bot: tbb.TravusBotBase):
+async def setup(bot: tbb.TravusBotBase):
     """Setup function ran when module is loaded."""
-    bot.add_cog(DevCog(bot))  # Add cog and command help info.
+    await bot.add_cog(DevCog(bot))  # Add cog and command help info.
     bot.add_module(
         "Dev",
         "[Travus](https://github.com/Travus):\n\tEval command\n\tRoleID command\n\tChannelID command\n\tLast error "
@@ -37,9 +37,9 @@ def setup(bot: tbb.TravusBotBase):
     )
 
 
-def teardown(bot: tbb.TravusBotBase):
+async def teardown(bot: tbb.TravusBotBase):
     """Teardown function ran when module is unloaded."""
-    bot.remove_cog("DevCog")  # Remove cog and command help info.
+    await bot.remove_cog("DevCog")  # Remove cog and command help info.
     bot.remove_module("Dev")
     bot.remove_command_help(DevCog)
 
