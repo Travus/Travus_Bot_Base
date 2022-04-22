@@ -462,7 +462,7 @@ class TravusBotBase(Bot):
         await self.update_command_states()  # Make sure commands are in the right state. (hidden, disabled)
 
     async def start(self, token: str, *, reconnect: bool = True):
-        """Connect to the database and load default data, commands and modules."""
+        """Connect to the database and load default data, commands, and modules, then start the bot."""
         try:
             async with asyncpg.create_pool(**self._db_creds.get_credentials()) as pool:
                 self.db: asyncpg.pool.Pool = pool
@@ -481,7 +481,7 @@ class TravusBotBase(Bot):
 
     async def close(self):
         """Coses the bot and the database connections."""
-        if "db" in self.__dict__ and self.db is not None:
+        if self.db is not None:
             await self.db.close()
         await super().close()
 
