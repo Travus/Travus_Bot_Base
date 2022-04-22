@@ -651,15 +651,13 @@ class CoreFunctionalityCog(commands.Cog):
         if countdown is None:  # If no time is passed along, shut down the bot immediately.
             await ctx.send("Goodbye!")
             await self.bot.close()
-            await self.bot.db.close()
         else:
             try:
                 time = tbb.parse_time(countdown, 0, 86400, True)  # Parse time to get time in seconds.
                 await ctx.send(f"Shutdown will commence in {time} seconds.")
                 await asleep(time)
                 await ctx.send("Shutting down!")
-                await self.bot.logout()
-                await self.bot.db.close()
+                await self.bot.close()
             except ValueError as e:  # If time parser encounters error, and error is exceeding of limit, report back.
                 if str(e) in ["Time too short.", "Time too long."]:
                     await ctx.send("The time for this command must be between 0 seconds to 24 hours.")
