@@ -187,12 +187,12 @@ class TravusBotBase(Bot):
                 ]
             )
             embed.add_field(name="Examples", value=examples[:1017] or "No examples found.", inline=False)
-            embed.set_footer(text=ctx.author.display_name, icon_url=ctx.author.avatar_url)
+            embed.set_footer(text=ctx.author.display_name, icon_url=ctx.author.avatar or ctx.author.default_avatar)
             if len(embed) > 6000:
                 embed = Embed(colour=discord.Color(0x990F02), timestamp=discord.utils.utcnow())
                 embed.description = "The combined length of the embed was more than the 6000 character maximum!"
                 embed.set_author(name="Oh no! Something went wrong!")
-                embed.set_footer(text=ctx.author.display_name, icon_url=ctx.author.avatar_url)
+                embed.set_footer(text=ctx.author.display_name, icon_url=ctx.author.avatar or ctx.author.default_avatar)
             return embed
 
     class _ModuleInfo:
@@ -224,7 +224,7 @@ class TravusBotBase(Bot):
             description = self.description.replace("_prefix_", self.get_prefix())
             embed.description = description if len(description) < 4097 else f"{description[:4092]}..."
             embed.set_author(name=self.name)
-            embed.set_footer(text=ctx.author.display_name, icon_url=ctx.author.avatar_url)
+            embed.set_footer(text=ctx.author.display_name, icon_url=ctx.author.avatar or ctx.author.default_avatar)
             if self.image:
                 embed.set_thumbnail(url=self.image)
             author = self.author if len(self.author) < 1024 else f"{self.author[:1020]}..."
@@ -238,7 +238,7 @@ class TravusBotBase(Bot):
                 embed = Embed(colour=discord.Color(0x990F02), timestamp=discord.utils.utcnow())
                 embed.description = "The combined length of the embed was more than the 6000 character maximum!"
                 embed.set_author(name="Oh no! Something went wrong!")
-                embed.set_footer(text=ctx.author.display_name, icon_url=ctx.author.avatar_url)
+                embed.set_footer(text=ctx.author.display_name, icon_url=ctx.author.avatar or ctx.author.default_avatar)
             return embed
 
     class _CustomHelp(commands.HelpCommand):
@@ -602,7 +602,9 @@ class TravusBotBase(Bot):
                 bot_credits.replace("\\n", "\n").replace("\\r", "\n").replace("\\t", "\t") if bot_credits else None
             )
             bot_desc = bot_desc or "No description for the bot found. Set description with `botconfig` command."
-            self.add_module(self.user.name, bot_author, None, bot_desc, bot_credits, self.user.avatar)
+            self.add_module(
+                self.user.name, bot_author, None, bot_desc, bot_credits, self.user.avatar or self.user.default_avatar
+            )
         activity = discord.Activity(
             type=discord.ActivityType.listening, name=f"prefix: {self.prefix}" if self.prefix else "pings only"
         )
