@@ -657,7 +657,7 @@ class TravusBotBase(Bot):
         elif isinstance(error, commands.MissingPermissions):  # Log to console.
             self.log.warning(
                 f"{ctx.author.id}: Command '{ctx.command}' requires additional permissions: "
-                f"{', '.join(error.missing_perms)}"
+                f"{', '.join(error.missing_permissions)}"
             )
         elif isinstance(error, commands.MissingRole):  # Log to console.
             self.log.warning(f"{ctx.author.id}: Command '{ctx.command}' requires role: {error.missing_role}")
