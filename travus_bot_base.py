@@ -144,6 +144,11 @@ class GlobalTextChannel(commands.Converter):
             raise commands.UserInputError("Could not identify text channel.")
 
 
+class TBBContext(commands.Context):
+    """Custom Context class that types bot correctly."""
+    bot: "TravusBotBase"
+
+
 class TravusBotBase(Bot):
     """Custom bot class with database connection."""
 
@@ -251,6 +256,7 @@ class TravusBotBase(Bot):
 
     class _CustomHelp(commands.HelpCommand):
         """Class for custom help command."""
+        context: TBBContext
 
         def __init__(self):
             """Initialization function that sets help and usage text for custom help command."""
@@ -355,6 +361,10 @@ class TravusBotBase(Bot):
         self.help_command = self._CustomHelp()
         self.config: Dict[str, str] = {}
         self._db_creds = database_credentials
+
+    async def get_context(self, message, *, cls=None):
+        """Stuff and things"""
+        return await super().get_context(message, cls=cls or TBBContext)
 
     async def _load_db_options(self):
         """Create, set up and query database for info. Create default values if database is empty."""
