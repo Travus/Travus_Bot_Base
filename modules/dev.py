@@ -175,14 +175,14 @@ class DevCog(commands.Cog):
         if isinstance(channel, Member):
             await ctx.send("Cannot sudo into DMs.")
             return
-        new_ctx = copy(ctx.message)
-        new_ctx.channel = channel or ctx.channel
-        new_ctx.author = new_ctx.channel.guild.get_member(user.id)
-        if new_ctx.author is None:
+        new_msg = copy(ctx.message)
+        new_msg.channel = channel or ctx.channel
+        new_msg.author = new_msg.channel.guild.get_member(user.id)
+        if new_msg.author is None:
             await ctx.send("Target user is not in target server.")
             return
-        new_ctx.content = ctx.prefix + cmd
-        new_ctx = await self.bot.get_context(new_ctx, cls=type(ctx))
+        new_msg.content = ctx.prefix + cmd
+        new_ctx = await self.bot.get_context(new_msg, cls=type(ctx))
         await self.bot.invoke(new_ctx)
 
     @commands.guild_only()
