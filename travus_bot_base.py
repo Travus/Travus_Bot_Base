@@ -1,17 +1,19 @@
 import logging
 import os
-from copy import copy  # To copy context in help command.
 from re import compile as re_cmp, findall  # Regex functions used in clean function for detecting mentions.
 from types import SimpleNamespace
-from typing import Callable, Dict, Iterable, List, Optional, Type, Union  # For type-hinting.
+from typing import Callable, Dict, Iterable, List, Optional, Type, TypeVar, Union
 
 import asyncpg
 import discord
 from aiohttp import ClientConnectorError as CCError  # To detect connection errors.
-from discord import (CategoryChannel, Embed, Forbidden, GroupChannel, Member, Message, StageChannel, TextChannel,
+from discord import (CategoryChannel, Embed, Forbidden, GroupChannel, Interaction, Member, Message, StageChannel,
+                     TextChannel,
                      Thread, User, VoiceChannel, utils)
 from discord.ext import commands
 from discord.ext.commands import Bot, Cog, Command, Context
+
+_ContextT = TypeVar('_ContextT', bound='Context[Any]')
 
 
 def check_embed_length(ctx: Context, embed: Embed) -> Embed:
@@ -285,8 +287,9 @@ class TravusBotBase(Bot):
             categories = {}  # List of categorized commands.
             filtered_mapping = {f"`{com.qualified_name}`": com for com in await self.filter_commands(full_mapping)}
             non_passing = list(set(full_mapping).difference(set(filtered_mapping.values())))
-            new_ctx = copy(self.context)
-            new_ctx.guild = None
+            new_message = self.context.message
+            new_message.guild = None
+            new_ctx = await self.context.bot.get_context(new_message)
             non_passing = {f"`{com.qualified_name}`¹": com for com in non_passing if await can_run(com, new_ctx)}
             filtered_mapping.update(non_passing)
             if not filtered_mapping:
@@ -362,9 +365,14 @@ class TravusBotBase(Bot):
         self.config: Dict[str, str] = {}
         self._db_creds = database_credentials
 
-    async def get_context(self, message, *, cls=None):
-        """Stuff and things"""
-        return await super().get_context(message, cls=cls or TBBContext)
+    async def get_context(
+            self,
+            origin: Union[Message, Interaction],
+            *,
+            cls: Optional[Type[_ContextT]] = None
+    ) -> Union[TBBContext, _ContextT]:
+        """Create TBBContexts with correct bot typing."""
+        return await super().get_context(origin, cls=cls or TBBContext)
 
     async def _load_db_options(self):
         """Create, set up and query database for info. Create default values if database is empty."""
