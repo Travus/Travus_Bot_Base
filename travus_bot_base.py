@@ -1,4 +1,3 @@
-import datetime  # To get current time.
 import logging
 import os
 from copy import copy  # To copy context in help command.
@@ -164,7 +163,7 @@ class TravusBotBase(Bot):
 
         def make_help_embed(self, ctx: Context) -> Embed:
             """Creates embeds for command based on info stored in class."""
-            embed = Embed(colour=discord.Color(0x4A4A4A), timestamp=datetime.datetime.utcnow())
+            embed = Embed(colour=discord.Color(0x4A4A4A), timestamp=discord.utils.utcnow())
             description = f"Category: {self.category.title()}\n\n{self.description}"
             embed.description = description if len(description) < 4097 else f"{description[:4092]}..."
             embed.set_author(name=f"{self.name.title()} Command"[:255])
@@ -190,7 +189,7 @@ class TravusBotBase(Bot):
             embed.add_field(name="Examples", value=examples[:1017] or "No examples found.", inline=False)
             embed.set_footer(text=ctx.author.display_name, icon_url=ctx.author.avatar_url)
             if len(embed) > 6000:
-                embed = Embed(colour=discord.Color(0x990F02), timestamp=datetime.datetime.utcnow())
+                embed = Embed(colour=discord.Color(0x990F02), timestamp=discord.utils.utcnow())
                 embed.description = "The combined length of the embed was more than the 6000 character maximum!"
                 embed.set_author(name="Oh no! Something went wrong!")
                 embed.set_footer(text=ctx.author.display_name, icon_url=ctx.author.avatar_url)
@@ -221,7 +220,7 @@ class TravusBotBase(Bot):
 
         def make_about_embed(self, ctx: Context) -> Embed:
             """Creates embeds for module based on info stored in class."""
-            embed = Embed(colour=discord.Color(0x4A4A4A), timestamp=datetime.datetime.utcnow())
+            embed = Embed(colour=discord.Color(0x4A4A4A), timestamp=discord.utils.utcnow())
             description = self.description.replace("_prefix_", self.get_prefix())
             embed.description = description if len(description) < 4097 else f"{description[:4092]}..."
             embed.set_author(name=self.name)
@@ -236,7 +235,7 @@ class TravusBotBase(Bot):
                 embed.add_field(name="Authored By", value=author, inline=True)
                 embed.add_field(name="Additional Credits", value=extra_credits, inline=True)
             if len(embed) > 6000:
-                embed = Embed(colour=discord.Color(0x990F02), timestamp=datetime.datetime.utcnow())
+                embed = Embed(colour=discord.Color(0x990F02), timestamp=discord.utils.utcnow())
                 embed.description = "The combined length of the embed was more than the 6000 character maximum!"
                 embed.set_author(name="Oh no! Something went wrong!")
                 embed.set_footer(text=ctx.author.display_name, icon_url=ctx.author.avatar_url)
@@ -719,8 +718,8 @@ async def can_run(command: Command, ctx: Context) -> bool:
 
 
 def cur_time() -> str:
-    """Get current time in YYYY-MM-DD HH:MM format."""
-    return str(datetime.datetime.utcnow())[0:16]
+    """Get current UTC time in YYYY-MM-DD HH:MM format."""
+    return str(discord.utils.utcnow())[0:16]
 
 
 async def del_message(msg: Message):
