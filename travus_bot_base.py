@@ -2,7 +2,7 @@ import logging
 import os
 from re import compile as re_cmp, findall  # Regex functions used in clean function for detecting mentions.
 from types import SimpleNamespace
-from typing import Callable, Dict, Iterable, List, Optional, Type, TypeVar, Union
+from typing import Callable, Dict, Iterable, List, Optional, Set, Type, TypeVar, Union
 
 import asyncpg
 import discord
@@ -282,9 +282,9 @@ class TravusBotBase(Bot):
             else:
                 await self.get_destination().send("No help information is registered for this command.")
 
-        async def _send_command_list(self, full_mapping):
+        async def _send_command_list(self, full_mapping: Set[Command]):
             """Help function which sends the command list. Factored out for DRYer code."""
-            categories = {}  # List of categorized commands.
+            categories: Dict[str, List[str]] = {}  # List of categorized commands.
             filtered_mapping = {f"`{com.qualified_name}`": com for com in await self.filter_commands(full_mapping)}
             non_passing = list(set(full_mapping).difference(set(filtered_mapping.values())))
             new_message = self.context.message
@@ -311,7 +311,7 @@ class TravusBotBase(Bot):
                 category_commands[-1] = f"{category_commands[-1][:-2]}\n\n"  # Replace ', ' with '\n\n' on last command
                 for com in category_commands:
                     paginator.add_line(self.remove_mentions(com))
-            end = "1 = In DMs only.\n" if len(non_passing) else ""
+            end = "1 = In DMs only.\n" if any(["¹" in elem for cat in categories.values() for elem in cat]) else ""
             end += f"Use `{self.context.bot.get_bot_prefix()}help <COMMAND>` for more info on individual commands."
             paginator.add_line(end)
             for page in paginator.pages:
@@ -605,8 +605,8 @@ class TravusBotBase(Bot):
         elif isinstance(command, Command):  # Remove single if only one is passed.
             if command.qualified_name in self.help:
                 del self.help[command.qualified_name if isinstance(command, Command) else command]
-        elif isinstance(command, Cog):
-            for com in command.walk_commands():
+        elif issubclass(command, Cog):
+            for com in command(self).walk_commands():
                 if com.qualified_name in self.help:
                     del self.help[com.qualified_name]
         elif isinstance(command, str):
