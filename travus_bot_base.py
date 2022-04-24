@@ -14,6 +14,16 @@ from discord.ext import commands
 from discord.ext.commands import Bot, Cog, Command, Context
 
 
+def check_embed_length(ctx: Context, embed: Embed) -> Embed:
+    """Checks the lengths of an embed, and returns an error embed instead if it's too long."""
+    if len(embed) > 6000:
+        embed = Embed(colour=discord.Color(0x990F02), timestamp=discord.utils.utcnow())
+        embed.description = "The combined length of the embed was more than the 6000 character maximum!"
+        embed.set_author(name="Oh no! Something went wrong!")
+        embed.set_footer(text=ctx.author.display_name, icon_url=ctx.author.display_avatar)
+    return embed
+
+
 class DependencyError(commands.CommandError):
     """Custom exception raised when modules are missing dependencies."""
 
@@ -196,12 +206,7 @@ class TravusBotBase(Bot):
             )
             embed.add_field(name="Examples", value=examples[:1017] or "No examples found.", inline=False)
             embed.set_footer(text=ctx.author.display_name, icon_url=ctx.author.display_avatar)
-            if len(embed) > 6000:
-                embed = Embed(colour=discord.Color(0x990F02), timestamp=discord.utils.utcnow())
-                embed.description = "The combined length of the embed was more than the 6000 character maximum!"
-                embed.set_author(name="Oh no! Something went wrong!")
-                embed.set_footer(text=ctx.author.display_name, icon_url=ctx.author.display_avatar)
-            return embed
+            return check_embed_length(ctx, embed)
 
     class _ModuleInfo:
         """Class that holds info for modules."""
@@ -242,12 +247,7 @@ class TravusBotBase(Bot):
                 extra_credits = self.credits if len(self.credits) < 1024 else f"{self.credits[:1020]}..."
                 embed.add_field(name="Authored By", value=author, inline=True)
                 embed.add_field(name="Additional Credits", value=extra_credits, inline=True)
-            if len(embed) > 6000:
-                embed = Embed(colour=discord.Color(0x990F02), timestamp=discord.utils.utcnow())
-                embed.description = "The combined length of the embed was more than the 6000 character maximum!"
-                embed.set_author(name="Oh no! Something went wrong!")
-                embed.set_footer(text=ctx.author.display_name, icon_url=ctx.author.display_avatar)
-            return embed
+            return check_embed_length(ctx, embed)
 
     class _CustomHelp(commands.HelpCommand):
         """Class for custom help command."""
