@@ -8,8 +8,8 @@ from typing import Callable, Dict, Iterable, List, Optional, Type, Union  # For 
 import asyncpg
 import discord
 from aiohttp import ClientConnectorError as CCError  # To detect connection errors.
-from discord import (CategoryChannel, Embed, Forbidden, GroupChannel, Member, Message, StageChannel, TextChannel, User,
-                     VoiceChannel, utils)
+from discord import (CategoryChannel, Embed, Forbidden, GroupChannel, Member, Message, StageChannel, TextChannel,
+                     Thread, User, VoiceChannel, utils)
 from discord.ext import commands
 from discord.ext.commands import Bot, Cog, Command, Context
 
@@ -77,7 +77,7 @@ class GlobalChannel(commands.Converter):
 
     async def convert(
         self, ctx: Context, channel: str
-    ) -> Union[TextChannel, VoiceChannel, StageChannel, CategoryChannel, GroupChannel, User]:
+    ) -> Union[TextChannel, VoiceChannel, StageChannel, CategoryChannel, GroupChannel, User, Thread]:
         """Converter method used by discord.py."""
         if isinstance(channel, str) and channel.lower() in ["here", "."]:
             return ctx.channel  # Get current channel if asked for.
@@ -92,6 +92,10 @@ class GlobalChannel(commands.Converter):
         except commands.ChannelNotFound:  # Channel not in server.
             pass
         try:
+            return await commands.ThreadConverter().convert(ctx, channel)
+        except commands.ThreadNotFound:
+            pass
+        try:
             converted = ctx.bot.get_channel(int(channel))
             if converted is None:
                 raise commands.UserInputError("Could not identify channel.")
@@ -103,7 +107,7 @@ class GlobalChannel(commands.Converter):
 class GlobalTextChannel(commands.Converter):
     """Custom converter that returns user, or text channel be it in the current server or another."""
 
-    async def convert(self, ctx: Context, text_channel: str) -> Union[TextChannel, GroupChannel, User]:
+    async def convert(self, ctx: Context, text_channel: str) -> Union[TextChannel, GroupChannel, User, Thread]:
         """Converter method used by discord.py."""
         if isinstance(text_channel, str) and text_channel.lower() in ["here", "."]:
             return ctx.channel  # Get current channel if asked for.
@@ -118,8 +122,12 @@ class GlobalTextChannel(commands.Converter):
         except commands.ChannelNotFound:  # Channel not in server.
             pass
         try:
-            converted = ctx.bot.get_channel(int(text_channel))
-            if not converted or not isinstance(converted, (TextChannel, GroupChannel, User)):
+            return await commands.ThreadConverter().convert(ctx, text_channel)
+        except commands.ThreadNotFound:
+            pass
+        try:
+            converted = await ctx.bot.fetch_channel(int(text_channel))
+            if not converted or not isinstance(converted, (TextChannel, GroupChannel, User, Thread)):
                 raise commands.UserInputError("Could not identify text channel.")
             return converted
         except ValueError:
@@ -696,13 +704,23 @@ def parse_time(duration: str, minimum: int = None, maximum: int = None, error_on
 
 async def send_in_global_channel(ctx: Context, channel: Optional[GlobalTextChannel], msg: str, other_dms: bool = False):
     """Sends a message in any text channel across servers and DMs. Has flag to allow sending to foreign DMs."""
+    user = ctx.author
     try:
-        if isinstance(channel, (User, Member)) and channel.id != ctx.author.id and not other_dms:
+        if isinstance(channel, (User, Member)) and channel.id != user.id and not other_dms:
             await ctx.send("Sending messages to another user's DMs is forbidden.")
-        elif isinstance(channel, (User, Member)) and (channel.id == ctx.author.id or other_dms):
+        elif isinstance(channel, (User, Member)) and (channel.id == user.id or other_dms):
             await channel.send(msg)
-        elif isinstance(channel, TextChannel) and channel.permissions_for(ctx.author).send_messages or channel is None:
+        elif isinstance(channel, TextChannel) and channel.permissions_for(user).send_messages or channel is None:
             await (channel or ctx.channel).send(msg)
+        elif isinstance(channel, Thread):
+            if not channel.permissions_for(user).send_messages_in_threads or channel.locked or channel.archived:
+                await ctx.send("You do not have permission to send messages in this thread.")
+            else:
+                if channel.is_private():
+                    if user not in await channel.fetch_members() and not channel.permissions_for(user).manage_threads:
+                        await ctx.send("You do not have permission to send messages in this private thread.")
+                else:
+                    await channel.send(msg)
         else:
             await ctx.send("You do not have permission to send messages in this channel.")
     except Forbidden:
