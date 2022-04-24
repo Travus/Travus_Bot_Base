@@ -770,11 +770,11 @@ def clean(ctx: Context, text: str, escape_markdown: bool = True, replace_backtic
 
     transformations.update(
         ("<@%s>" % member_id, resolve_member(member_id))
-        for member_id in [int(x) for x in findall(r"<@!?([0-9]+)>", text)]
+        for member_id in [int(x) for x in findall(r"<@!?(\d+)>", text)]
     )
     transformations.update(
         ("<@!%s>" % member_id, resolve_member(member_id))
-        for member_id in [int(x) for x in findall(r"<@!?([0-9]+)>", text)]
+        for member_id in [int(x) for x in findall(r"<@!?(\d+)>", text)]
     )
 
     if ctx.guild:
@@ -789,9 +789,9 @@ def clean(ctx: Context, text: str, escape_markdown: bool = True, replace_backtic
             role = ctx.guild.get_role(_id)
             return "@" + role.name if role else "@deleted-role"
 
-        transformations.update(resolve_channel(channel) for channel in [int(x) for x in findall(r"<#([0-9]+)>", text)])
+        transformations.update(resolve_channel(channel) for channel in [int(x) for x in findall(r"<#(\d+)>", text)])
         transformations.update(
-            ("<@&%s>" % role_id, resolve_role(role_id)) for role_id in [int(x) for x in findall(r"<@&([0-9]+)>", text)]
+            ("<@&%s>" % role_id, resolve_role(role_id)) for role_id in [int(x) for x in findall(r"<@&(\d+)>", text)]
         )
 
     def repl(obj):
