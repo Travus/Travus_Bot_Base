@@ -1,7 +1,8 @@
+import copy
 import logging
 import os
 from re import compile as re_cmp, findall  # Regex functions used in clean function for detecting mentions.
-from typing import Callable, Dict, Iterable, List, Optional, Set, Type, TypeVar, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Type, TypeVar, Union
 
 import asyncpg
 import discord
@@ -22,7 +23,7 @@ from discord import (
     utils,
 )
 from discord.ext import commands
-from discord.ext.commands import Bot, Cog, Command, Context
+from discord.ext.commands import Bot, Cog, Command, Context, Group
 
 _ContextT = TypeVar("_ContextT", bound="Context[Any]")
 
@@ -163,8 +164,10 @@ class TBBContext(commands.Context):
     bot: "TravusBotBase"
 
 
-class TravusBotBase(Bot):
+class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
     """Custom bot class with database connection."""
+
+    db: asyncpg.Pool
 
     class _HelpInfo:
         """Class that holds help info for commands."""
@@ -300,11 +303,11 @@ class TravusBotBase(Bot):
             categories: Dict[str, List[str]] = {}  # List of categorized commands.
             filtered_mapping = {f"`{com.qualified_name}`": com for com in await self.filter_commands(full_mapping)}
             non_passing = list(set(full_mapping).difference(set(filtered_mapping.values())))
-            new_message = self.context.message
+            new_message = copy.copy(self.context.message)
             new_message.guild = None
             new_ctx = await self.context.bot.get_context(new_message)
-            non_passing = {f"`{com.qualified_name}`¹": com for com in non_passing if await can_run(com, new_ctx)}
-            filtered_mapping.update(non_passing)
+            dm_only = {f"`{com.qualified_name}`¹": com for com in non_passing if await can_run(com, new_ctx)}
+            filtered_mapping.update(dm_only)
             if not filtered_mapping:
                 await self.get_destination().send("No help information was found.")
                 return
@@ -324,13 +327,13 @@ class TravusBotBase(Bot):
                 category_commands[-1] = f"{category_commands[-1][:-2]}\n\n"  # Replace ', ' with '\n\n' on last command
                 for com in category_commands:
                     paginator.add_line(self.remove_mentions(com))
-            end = "1 = In DMs only.\n" if any(["¹" in elem for cat in categories.values() for elem in cat]) else ""
+            end = "1 = In DMs only.\n" if any("¹" in elem for cat in categories.values() for elem in cat) else ""
             end += f"Use `{self.context.bot.get_bot_prefix()}help <COMMAND>` for more info on individual commands."
             paginator.add_line(end)
             for page in paginator.pages:
                 await self.get_destination().send(page)
 
-        async def send_bot_help(self, mapping):
+        async def send_bot_help(self, mapping, /):
             """Function that triggers when help command is used without command."""
             full_mapping = []  # Command list.
             for com_mapping in mapping.values():
@@ -338,35 +341,34 @@ class TravusBotBase(Bot):
             full_mapping = {com for com in full_mapping if com.enabled and not com.hidden}
             await self._send_command_list(full_mapping)
 
-        async def send_command_help(self, command_object: Command):
+        async def send_command_help(self, command_object: Command[Any, ..., Any], /):
             """Function that triggers when help command is used with a command."""
             while command_object.qualified_name not in self.context.bot.help.keys() and len(command_object.parents):
                 command_object = command_object.parents[0]  # Get parent in case it has help text.
             await self._send_help_entry(command_object)
 
-        async def send_cog_help(self, cog: Cog):
+        async def send_cog_help(self, cog: Cog, /):
             """Function that triggers when help command is used with a cog."""
             full_mapping = {com for com in cog.get_commands() if com.enabled and not com.hidden}
             await self._send_command_list(full_mapping)
 
-        async def send_group_help(self, group):
+        async def send_group_help(self, group: Group[Any, ..., Any], /):
             """Function that triggers when help command is used with a group."""
             while group.qualified_name not in self.context.bot.help.keys() and len(group.parents):
                 group = group.parents[0]  # Get parent in case it has help text.
             await self._send_help_entry(group)
 
-        def subcommand_not_found(self, command, string):
+        def subcommand_not_found(self, command: Command[Any, ..., Any], string: str, /):
             """Function that returns content of error when subcommand invalid."""
             return f"The `{command.qualified_name}` command has no subcommand called `{string}`."
 
-        def command_not_found(self, string):
+        def command_not_found(self, string: str, /):
             """Function that returns content of error when command not found."""
             return f"No command called `{string}` found."
 
     def __init__(self, database_credentials: DatabaseCredentials, *args, **kwargs):
         """Initialization function loading all necessary information for TravusBotBase class."""
         super().__init__(*args, **kwargs)
-        self.db: Optional[asyncpg.Pool] = None
         self.log = BOT_LOG
         self.last_module_error: Optional[str] = None
         self.last_error: Optional[str] = None
@@ -377,9 +379,11 @@ class TravusBotBase(Bot):
         self.help_command = self._CustomHelp()
         self.config: Dict[str, str] = {}
         self._db_creds = database_credentials
+        self.prefix: Optional[str] = None
+        self.delete_messages: int = 1
 
     async def get_context(
-        self, origin: Union[Message, Interaction], *, cls: Optional[Type[_ContextT]] = None
+        self, origin: Union[Message, Interaction], /, *, cls: Optional[Type[_ContextT]] = None
     ) -> Union[TBBContext, _ContextT]:
         """Create TBBContexts with correct bot typing."""
         return await super().get_context(origin, cls=cls or TBBContext)
@@ -407,8 +411,8 @@ class TravusBotBase(Bot):
             delete_msgs = await conn.fetchval("SELECT value FROM settings WHERE key = 'delete_messages'")
             config = await conn.fetch("SELECT key, value FROM config")
 
-        self.prefix: Optional[str] = loaded_prefix or None
-        self.delete_messages: int = int(delete_msgs) if delete_msgs is not None else 1
+        self.prefix = loaded_prefix or None
+        self.delete_messages = int(delete_msgs) if delete_msgs is not None else 1
         self.add_command_help(
             [com for com in self.commands if com.name == "help"][0], "Core", None, ["", "about", "help"]
         )  # Add help info for help command.
@@ -500,11 +504,11 @@ class TravusBotBase(Bot):
         """Connect to the database and load default data, commands, and modules, then start the bot."""
         try:
             async with asyncpg.create_pool(**self._db_creds.get_credentials()) as pool:
-                self.db: asyncpg.pool.Pool = pool
+                self.db = pool
                 await self._load_db_options()
                 await self._load_default_commands()
                 await self._load_default_modules()  # Waits for bot to be ready
-                await super(TravusBotBase, self).start(token, reconnect=reconnect)
+                await super().start(token, reconnect=reconnect)
         except asyncpg.exceptions.InvalidCatalogNameError:
             self.log.critical("Error: Failed to connect to database. Database name not found.")
         except asyncpg.exceptions.InvalidPasswordError:
@@ -548,14 +552,14 @@ class TravusBotBase(Bot):
     ):
         """Function that is used to add module info to the bot correctly. Used to minimize developmental errors."""
         info = self._ModuleInfo(self.get_bot_prefix, name, author, usage, description, additional_credits, image_link)
-        if name.lower() not in self.modules.keys():
+        if name.lower() not in self.modules:
             self.modules[name.lower()] = info
         else:
             raise RuntimeError(f"A module with the name '{name}' already exists.")
 
     def remove_module(self, name: str):
         """Function that is used to remove module info to the bot correctly. Used to minimize developmental errors."""
-        if name.lower() in self.modules.keys():
+        if name.lower() in self.modules:
             del self.modules[name.lower()]
 
     def add_commands(self, command_list: List[Command]):
@@ -615,7 +619,7 @@ class TravusBotBase(Bot):
         elif isinstance(command, Command):  # Remove single if only one is passed.
             if command.qualified_name in self.help:
                 del self.help[command.qualified_name if isinstance(command, Command) else command]
-        elif issubclass(command, Cog):
+        elif issubclass(command.__class__, Cog) and not isinstance(command, str):
             for com in command(self).walk_commands():
                 if com.qualified_name in self.help:
                     del self.help[com.qualified_name]
@@ -626,7 +630,7 @@ class TravusBotBase(Bot):
     async def on_ready(self):
         """This function runs every time the bot connects to Discord. This happens multiple times.
         Sets about command and bot status. These require the bot to be online and hence are in here."""
-        if self.user.name.lower() not in self.modules.keys():
+        if self.user.name.lower() not in self.modules:
             async with self.db.acquire() as conn:
                 bot_credits = await conn.fetchval("SELECT value FROM settings WHERE key = 'additional_credits'")
                 bot_desc = await conn.fetchval("SELECT value FROM settings WHERE key = 'bot_description'")
@@ -666,7 +670,7 @@ class TravusBotBase(Bot):
             except Forbidden:  # Log to console if missing permission to delete message.
                 self.log.warning("Bot does not have required permissions to delete message.")
 
-    async def on_command_error(self, ctx: Context, error=None):
+    async def on_command_error(self, ctx: Context, error: commands.CommandError, /):
         """Global error handler for miscellaneous errors."""
         if isinstance(
             error,
@@ -711,7 +715,7 @@ def parse_time(duration: str, minimum: int = None, maximum: int = None, error_on
     last, t_total = 0, 0
     t_frames = {"w": 604800, "d": 86400, "h": 3600, "m": 60, "s": 1}
     for index, char in enumerate(duration):  # For every character in time string.
-        if char.lower() in t_frames.keys():
+        if char.lower() in t_frames:
             if duration[last:index] != "":
                 t_total += int(duration[last:index]) * t_frames[char.lower()]
             last = index + 1
@@ -793,11 +797,10 @@ def _clean(
         return "@" + member.name if member else "@deleted-user"
 
     transformations.update(
-        ("<@%s>" % member_id, resolve_member(member_id)) for member_id in [int(x) for x in findall(r"<@!?(\d+)>", text)]
+        (f"<@{member_id}>", resolve_member(member_id)) for member_id in [int(x) for x in findall(r"<@!?(\d+)>", text)]
     )
     transformations.update(
-        ("<@!%s>" % member_id, resolve_member(member_id))
-        for member_id in [int(x) for x in findall(r"<@!?(\d+)>", text)]
+        (f"<@!{member_id}>", resolve_member(member_id)) for member_id in [int(x) for x in findall(r"<@!?(\d+)>", text)]
     )
 
     if guild:
@@ -805,7 +808,7 @@ def _clean(
         def resolve_channel(_id):
             """Resolves channel mentions."""
             ch = guild.get_channel(_id)
-            return ("<#%s>" % _id), ("#" + ch.name if ch else "#deleted-channel")
+            return f"<#{_id}>", ("#" + ch.name if ch else "#deleted-channel")
 
         def resolve_role(_id):
             """Resolves role mentions."""
@@ -814,7 +817,7 @@ def _clean(
 
         transformations.update(resolve_channel(channel) for channel in [int(x) for x in findall(r"<#(\d+)>", text)])
         transformations.update(
-            ("<@&%s>" % role_id, resolve_role(role_id)) for role_id in [int(x) for x in findall(r"<@&(\d+)>", text)]
+            (f"<@&{role_id}>", resolve_role(role_id)) for role_id in [int(x) for x in findall(r"<@&(\d+)>", text)]
         )
 
     def repl(obj):
