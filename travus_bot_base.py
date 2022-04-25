@@ -766,13 +766,19 @@ async def del_message(msg: Message):
             BOT_LOG.warning("Bot does not have required permissions to delete message.")
 
 
-def clean(ctx: Context, text: str, escape_markdown: bool = True, replace_backticks: bool = False) -> str:
-    """Cleans text, escaping mentions and markdown. Tries to change mentions to text."""
+def _clean(
+    bot: TravusBotBase,
+    guild: Optional[discord.Guild],
+    text: str,
+    escape_markdown: bool = True,
+    replace_backticks: bool = False
+) -> str:
+    """Underlying function used by clean and clean_no_ctx functions."""
     transformations: Dict[str, str] = {}
 
     def resolve_member(_id):
         """Resolves user mentions."""
-        member = ctx.bot.get_user(_id)
+        member = bot.get_user(_id)
         return "@" + member.name if member else "@deleted-user"
 
     transformations.update(
@@ -784,16 +790,15 @@ def clean(ctx: Context, text: str, escape_markdown: bool = True, replace_backtic
         for member_id in [int(x) for x in findall(r"<@!?(\d+)>", text)]
     )
 
-    if ctx.guild:
-
+    if guild:
         def resolve_channel(_id):
             """Resolves channel mentions."""
-            ch = ctx.guild.get_channel(_id)
+            ch = guild.get_channel(_id)
             return ("<#%s>" % _id), ("#" + ch.name if ch else "#deleted-channel")
 
         def resolve_role(_id):
             """Resolves role mentions."""
-            role = ctx.guild.get_role(_id)
+            role = guild.get_role(_id)
             return "@" + role.name if role else "@deleted-role"
 
         transformations.update(resolve_channel(channel) for channel in [int(x) for x in findall(r"<#(\d+)>", text)])
@@ -814,6 +819,11 @@ def clean(ctx: Context, text: str, escape_markdown: bool = True, replace_backtic
     return utils.escape_mentions(result)
 
 
+def clean(ctx: Context, text: str, escape_markdown: bool = True, replace_backticks: bool = False) -> str:
+    """Cleans text, escaping mentions and markdown. Tries to change mentions to text."""
+    return _clean(ctx.bot, ctx.guild, text, escape_markdown, replace_backticks)
+
+
 def clean_no_ctx(
     bot: TravusBotBase,
     guild: Optional[discord.Guild],
@@ -822,9 +832,7 @@ def clean_no_ctx(
     replace_backticks: bool = False,
 ) -> str:
     """Cleans text, escaping mentions and markdown. Tries to change mentions to text. Works without context."""
-    message = SimpleNamespace(guild=guild, _state=None)
-    ctx = Context(message=message, bot=bot, prefix=None)
-    return clean(ctx, text, escape_markdown, replace_backticks)
+    return _clean(bot, guild, text, escape_markdown, replace_backticks)
 
 
 def unembed_urls(text: str) -> str:
