@@ -2,7 +2,7 @@ import copy
 import logging
 import os
 from re import compile as re_cmp, findall  # Regex functions used in clean function for detecting mentions.
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Type, TypeVar, Union
+from typing import Any, Callable, Iterable, Optional, Type, TypeVar
 
 import asyncpg
 import discord
@@ -41,7 +41,7 @@ def check_embed_length(ctx: Context, embed: Embed) -> Embed:
 class DependencyError(commands.CommandError):
     """Custom exception raised when modules are missing dependencies."""
 
-    def __init__(self, dependencies: List[str]):
+    def __init__(self, dependencies: list[str]):
         """Initialization of DependencyError exception."""
         self.message = f"Missing dependencies: {', '.join(dependencies)}"
         self.missing_dependencies = dependencies
@@ -85,7 +85,7 @@ class DatabaseCredentials:
         self._port = port
         self._database = database
 
-    def get_credentials(self) -> Dict[str, str]:
+    def get_credentials(self) -> dict[str, str]:
         """Returns a dictionary mapping from user, password, host, port and database to the respective values."""
         return {
             "user": self._user,
@@ -101,7 +101,7 @@ class GlobalChannel(commands.Converter):
 
     async def convert(
         self, ctx: Context, channel: str
-    ) -> Union[TextChannel, VoiceChannel, StageChannel, CategoryChannel, GroupChannel, User, Thread]:
+    ) -> TextChannel | VoiceChannel | StageChannel | CategoryChannel | GroupChannel | User | Thread:
         """Converter method used by discord.py."""
         if isinstance(channel, str) and channel.lower() in ["here", "."]:
             return ctx.channel  # Get current channel if asked for.
@@ -131,7 +131,7 @@ class GlobalChannel(commands.Converter):
 class GlobalTextChannel(commands.Converter):
     """Custom converter that returns user, or text channel be it in the current server or another."""
 
-    async def convert(self, ctx: Context, text_channel: str) -> Union[TextChannel, GroupChannel, User, Thread]:
+    async def convert(self, ctx: Context, text_channel: str) -> TextChannel | GroupChannel | User | Thread:
         """Converter method used by discord.py."""
         if isinstance(text_channel, str) and text_channel.lower() in ["here", "."]:
             return ctx.channel  # Get current channel if asked for.
@@ -177,8 +177,8 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
             get_prefix: Callable,
             command: Command,
             category: str = "no category",
-            restrictions: Dict[str, Union[List[str], str]] = None,
-            examples: List[str] = None,
+            restrictions: dict[str, list[str] | str] = None,
+            examples: list[str] = None,
         ):
             """Initialization function loading all necessary information for HelpInfo class."""
             res = restrictions  # Shortening often used variable name.
@@ -238,10 +238,10 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
             get_prefix: Callable,
             name: str,
             author: str,
-            usage: Callable[[], Union[str, Embed]] = None,
-            description: str = None,
-            extra_credits: str = None,
-            image_link: Union[str, discord.Asset] = None,
+            usage: Optional[Callable[[], str | Embed]] = None,
+            description: Optional[str] = None,
+            extra_credits: Optional[str] = None,
+            image_link: Optional[str | discord.Asset] = None,
         ):
             """Initialization function loading all necessary information for ModuleInfo class."""
             self.get_prefix = get_prefix
@@ -298,9 +298,9 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
             else:
                 await self.get_destination().send("No help information is registered for this command.")
 
-        async def _send_command_list(self, full_mapping: Set[Command]):
+        async def _send_command_list(self, full_mapping: set[Command]):
             """Help function which sends the command list. Factored out for DRYer code."""
-            categories: Dict[str, List[str]] = {}  # List of categorized commands.
+            categories: dict[str, list[str]] = {}  # List of categorized commands.
             filtered_mapping = {f"`{com.qualified_name}`": com for com in await self.filter_commands(full_mapping)}
             non_passing = list(set(full_mapping).difference(set(filtered_mapping.values())))
             new_message = copy.copy(self.context.message)
@@ -373,18 +373,18 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
         self.last_module_error: Optional[str] = None
         self.last_error: Optional[str] = None
         self.extension_ctx: Optional[Context] = None
-        self.help: Dict[str, TravusBotBase._HelpInfo] = {}
-        self.modules: Dict[str, TravusBotBase._ModuleInfo] = {}
+        self.help: dict[str, TravusBotBase._HelpInfo] = {}
+        self.modules: dict[str, TravusBotBase._ModuleInfo] = {}
         self.is_connected: int = 0
         self.help_command = self._CustomHelp()
-        self.config: Dict[str, str] = {}
+        self.config: dict[str, str] = {}
         self._db_creds = database_credentials
         self.prefix: Optional[str] = None
         self.delete_messages: int = 1
 
     async def get_context(
-        self, origin: Union[Message, Interaction], /, *, cls: Optional[Type[_ContextT]] = None
-    ) -> Union[TBBContext, _ContextT]:
+        self, origin: Message | Interaction, /, *, cls: Optional[Type[_ContextT]] = None
+    ) -> TBBContext | _ContextT:
         """Create TBBContexts with correct bot typing."""
         return await super().get_context(origin, cls=cls or TBBContext)
 
@@ -441,7 +441,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
     async def _load_default_modules(self):
         """Load default modules once bot has cached."""
 
-        async def load_module(default_list: List[str], module: str, propagate=False) -> bool:
+        async def load_module(default_list: list[str], module: str, propagate=False) -> bool:
             """Attempt to load a module, and recursively attempts to loads dependencies."""
             if module not in default_list:
                 return False
@@ -530,7 +530,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
             return self.prefix
         return f"@{self.user.display_name}#{self.user.discriminator} "
 
-    def check_dependencies(self, dependencies: List[str]):
+    def check_dependencies(self, dependencies: list[str]):
         """Checks if all dependencies are met. Raises DependencyError with the missing dependencies if not."""
         dependencies = dependencies.copy()
         if "core_commands" in dependencies and "core_commands" in self.extensions:  # core_commands is not in modules
@@ -545,10 +545,10 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
         self,
         name: str,
         author: str,
-        usage: Callable[[], Union[str, Embed]] = None,
-        description: str = None,
-        additional_credits: str = None,
-        image_link: Union[str, discord.Asset] = None,
+        usage: Callable[[], str | Embed] = None,
+        description: Optional[str] = None,
+        additional_credits: Optional[str] = None,
+        image_link: Optional[str | discord.Asset] = None,
     ):
         """Function that is used to add module info to the bot correctly. Used to minimize developmental errors."""
         info = self._ModuleInfo(self.get_bot_prefix, name, author, usage, description, additional_credits, image_link)
@@ -562,12 +562,12 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
         if name.lower() in self.modules:
             del self.modules[name.lower()]
 
-    def add_commands(self, command_list: List[Command]):
+    def add_commands(self, command_list: list[Command]):
         """Adds multiple commands at once using bot.add_command."""
         for com in command_list:
             self.add_command(com)
 
-    def remove_commands(self, command_list: List[Union[Command, str]]):
+    def remove_commands(self, command_list: list[Command | str]):
         """Removed multiple commands at once using bot.remove_command. Accepts command names or commands."""
         for com in command_list:
             self.remove_command(com.name if isinstance(com, Command) else com)
@@ -598,8 +598,8 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
         self,
         command,
         category: str = "no category",
-        restrictions: Dict[str, Union[List[str], str]] = None,
-        examples: List[str] = None,
+        restrictions: dict[str, list[str] | str] = None,
+        examples: list[str] = None,
     ):
         """Function that is used to add help info to the bot correctly. Used to minimize developmental errors. Command
         should be either a command or a command group."""
@@ -608,7 +608,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
             self.get_bot_prefix, command, category, restrictions, examples
         )
 
-    def remove_command_help(self, command: Union[Command, Type[Cog], str, List[Union[Command, str]]]):
+    def remove_command_help(self, command: Command | Type[Cog] | str | list[Command | str]):
         """Function that is used to remove command help info from the bot correctly. Used to minimize developmental
         errors."""
         if isinstance(command, list):  # Remove all in list, if list is passed.
@@ -789,7 +789,7 @@ def _clean(
     replace_backticks: bool = False,
 ) -> str:
     """Underlying function used by clean and clean_no_ctx functions."""
-    transformations: Dict[str, str] = {}
+    transformations: dict[str, str] = {}
 
     def resolve_member(_id):
         """Resolves user mentions."""
