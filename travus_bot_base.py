@@ -6,13 +6,25 @@ from typing import Callable, Dict, Iterable, List, Optional, Set, Type, TypeVar,
 import asyncpg
 import discord
 from aiohttp import ClientConnectorError as CCError  # To detect connection errors.
-from discord import (CategoryChannel, Embed, Forbidden, GroupChannel, Interaction, Member, Message, StageChannel,
-                     TextChannel,
-                     Thread, User, VoiceChannel, utils)
+from discord import (
+    CategoryChannel,
+    Embed,
+    Forbidden,
+    GroupChannel,
+    Interaction,
+    Member,
+    Message,
+    StageChannel,
+    TextChannel,
+    Thread,
+    User,
+    VoiceChannel,
+    utils,
+)
 from discord.ext import commands
 from discord.ext.commands import Bot, Cog, Command, Context
 
-_ContextT = TypeVar('_ContextT', bound='Context[Any]')
+_ContextT = TypeVar("_ContextT", bound="Context[Any]")
 
 
 def check_embed_length(ctx: Context, embed: Embed) -> Embed:
@@ -147,6 +159,7 @@ class GlobalTextChannel(commands.Converter):
 
 class TBBContext(commands.Context):
     """Custom Context class that types bot correctly."""
+
     bot: "TravusBotBase"
 
 
@@ -257,6 +270,7 @@ class TravusBotBase(Bot):
 
     class _CustomHelp(commands.HelpCommand):
         """Class for custom help command."""
+
         context: TBBContext
 
         def __init__(self):
@@ -365,10 +379,7 @@ class TravusBotBase(Bot):
         self._db_creds = database_credentials
 
     async def get_context(
-            self,
-            origin: Union[Message, Interaction],
-            *,
-            cls: Optional[Type[_ContextT]] = None
+        self, origin: Union[Message, Interaction], *, cls: Optional[Type[_ContextT]] = None
     ) -> Union[TBBContext, _ContextT]:
         """Create TBBContexts with correct bot typing."""
         return await super().get_context(origin, cls=cls or TBBContext)
@@ -771,7 +782,7 @@ def _clean(
     guild: Optional[discord.Guild],
     text: str,
     escape_markdown: bool = True,
-    replace_backticks: bool = False
+    replace_backticks: bool = False,
 ) -> str:
     """Underlying function used by clean and clean_no_ctx functions."""
     transformations: Dict[str, str] = {}
@@ -782,8 +793,7 @@ def _clean(
         return "@" + member.name if member else "@deleted-user"
 
     transformations.update(
-        ("<@%s>" % member_id, resolve_member(member_id))
-        for member_id in [int(x) for x in findall(r"<@!?(\d+)>", text)]
+        ("<@%s>" % member_id, resolve_member(member_id)) for member_id in [int(x) for x in findall(r"<@!?(\d+)>", text)]
     )
     transformations.update(
         ("<@!%s>" % member_id, resolve_member(member_id))
@@ -791,6 +801,7 @@ def _clean(
     )
 
     if guild:
+
         def resolve_channel(_id):
             """Resolves channel mentions."""
             ch = guild.get_channel(_id)

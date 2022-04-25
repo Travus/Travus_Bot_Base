@@ -52,7 +52,7 @@ async def main(logger: logging.Logger):
     discord_token = config["discord_token"]
     bot = tbb.TravusBotBase(db_credentials, command_prefix=get_prefix, intents=intent)
     await bot.start(discord_token)
-    await asyncio.sleep(.25)  # Asyncio being weird, see https://github.com/python/cpython/issues/83413
+    await asyncio.sleep(0.25)  # Asyncio being weird, see https://github.com/python/cpython/issues/83413
 
 
 if __name__ == "__main__":
