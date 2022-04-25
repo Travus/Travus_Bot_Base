@@ -1,7 +1,6 @@
 import logging
 import os
 from re import compile as re_cmp, findall  # Regex functions used in clean function for detecting mentions.
-from types import SimpleNamespace
 from typing import Callable, Dict, Iterable, List, Optional, Set, Type, TypeVar, Union
 
 import asyncpg
@@ -563,7 +562,7 @@ class TravusBotBase(Bot):
         async with self.db.acquire() as conn:
             async with conn.transaction():
                 for command in self.commands:
-                    cog_com_name = f"{command.cog.__class__.__name__ + '.' if command.cog else ''}{command.name}"
+                    cog_com_name = f"{f'{command.cog_name}.' if command.cog_name else ''}{command.name}"
                     command_state = await conn.fetchval(
                         "SELECT state FROM command_states WHERE command = $1;", cog_com_name
                     )
