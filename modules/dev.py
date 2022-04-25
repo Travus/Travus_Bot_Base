@@ -3,7 +3,7 @@ from copy import copy  # For copying context.
 from io import StringIO  # To return eval output.
 from textwrap import indent, wrap  # To format eval output.
 from traceback import format_exc  # To return eval output.
-from typing import Optional, Union  # For type-hinting.
+from typing import Optional  # For type-hinting.
 
 import aiohttp  # To send info to mystbin.
 from aiohttp import ClientSession
@@ -188,9 +188,7 @@ class DevCog(commands.Cog):
     @commands.guild_only()
     @commands.has_permissions(manage_roles=True)
     @commands.command(name="roleids", aliases=["roleid"], usage="<ROLE/all> (OUTPUT CHANNEL/dm)")
-    async def roleids(
-        self, ctx: commands.Context, role: Union[Role, str], resp_channel: Optional[tbb.GlobalTextChannel]
-    ):
+    async def roleids(self, ctx: commands.Context, role: Role | str, resp_channel: Optional[tbb.GlobalTextChannel]):
         """This command gives you role IDs of one or all roles in the server depending on if a role or `all` is passed
         along. You can also pass along a channel, in this server or otherwise, in which case the response is sent in
         that channel. Sending `dm` instead of a channel will send you the result in direct messages."""
@@ -212,7 +210,7 @@ class DevCog(commands.Cog):
     async def channelids(
         self,
         ctx: commands.Context,
-        channel: Union[tbb.GlobalChannel, str],
+        channel: tbb.GlobalChannel | str,
         resp_channel: Optional[tbb.GlobalTextChannel],
     ):
         """This command gives you channel IDs of one or all channels in the server depending on if a channel or `all`
