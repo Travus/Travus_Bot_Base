@@ -545,7 +545,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
         self,
         name: str,
         author: str,
-        usage: Callable[[], str | Embed] = None,
+        usage: Optional[Callable[[], str | Embed]] = None,
         description: Optional[str] = None,
         additional_credits: Optional[str] = None,
         image_link: Optional[str | discord.Asset] = None,
