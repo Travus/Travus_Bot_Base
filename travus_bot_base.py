@@ -442,7 +442,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
         """Load default modules once bot has cached."""
 
         async def load_module(default_list: list[str], module: str, propagate=False) -> bool:
-            """Attempt to load a module, and recursively attempts to loads dependencies."""
+            """Attempt to load a module, and recursively attempts to load dependencies."""
             if module not in default_list:
                 return False
             default_list.remove(module)
@@ -710,7 +710,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
 
 def parse_time(duration: str, minimum: int = None, maximum: int = None, error_on_exceeded: bool = True) -> int:
     """Function that parses time in a NhNmNs format. Supports weeks, days, hours, minutes and seconds, positive and
-    negative amounts and max values. Minimum and maximum values can be set (in seconds), and whether a error should
+    negative amounts and max values. Minimum and maximum values can be set (in seconds), and whether an error should
     occur or the max / min value should be used when these are exceeded."""
     last, t_total = 0, 0
     t_frames = {"w": 604800, "d": 86400, "h": 3600, "m": 60, "s": 1}
@@ -856,8 +856,8 @@ def unembed_urls(text: str) -> str:
         """Function used in regex substitution."""
         return f"<{obj.group(0).strip('<').strip('>')}>"
 
-    ptrn = re_cmp(r"(\b|<)https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_+.~#?&\\/=]*)>?")
-    text = ptrn.sub(repl, text)
+    regex = re_cmp(r"(\b|<)https?://(www\.)?[-a-zA-Z0-9@:%._+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_+.~#?&\\/=]*)>?")
+    text = regex.sub(repl, text)
     return text
 
 
