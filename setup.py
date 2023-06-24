@@ -13,7 +13,7 @@ def clr():
 def main():
     """Contains the setup.py business logic."""
     token_ok = False  # Set to true when the token is valid.
-    external = False  # Set to true if a external DB is used.
+    external = False  # Set to true if an external DB is used.
     settings = {
         "discord_token": "",
         "pg_address": "postgres",

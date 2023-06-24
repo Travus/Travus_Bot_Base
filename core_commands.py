@@ -315,7 +315,7 @@ class CoreFunctionalityCog(commands.Cog):
     @commands.has_permissions(administrator=True)
     @module.command(name="unload", aliases=["ul"], usage="<MODULE NAME>")
     async def module_unload(self, ctx: commands.Context, *, mod: str):
-        """This command unloads modules. When a loaded module is unloaded it's functionality will be removed. You can
+        """This command unloads modules. When a loaded module is unloaded its functionality will be removed. You can
         use the `module list` command to see all currently loaded modules. This will not prevent default modules from
         being loaded when the bot starts. See the `default` command for removing modules starting with the bot."""
         await self._module_operation(ctx, "unload", mod)
@@ -410,7 +410,7 @@ class CoreFunctionalityCog(commands.Cog):
         raise commands.BadArgument(f"No subcommand given for {ctx.command.name}.")
 
     async def _command_get_state(self, command: commands.Command) -> int:
-        """Helper function for command command that gets the state of the command."""
+        """Helper function for the 'command' command that gets the state of the command."""
         async with self.bot.db.acquire() as conn:
             cog_com_name = f"{command.cog.__class__.__name__ + '.' if command.cog else ''}{command.name}"
             response = await conn.fetchval("SELECT state FROM command_states WHERE command = $1", cog_com_name)
@@ -420,7 +420,7 @@ class CoreFunctionalityCog(commands.Cog):
             return response
 
     async def _command_set_state(self, command: commands.Command, state: int):
-        """Helper function for command command that sets the state of the command."""
+        """Helper function for the 'command' command that sets the state of the command."""
         async with self.bot.db.acquire() as conn:
             await conn.execute(
                 "UPDATE command_states SET state = $1 WHERE command = $2",
@@ -433,7 +433,7 @@ class CoreFunctionalityCog(commands.Cog):
     async def command_enable(self, ctx: commands.Context, *, command_name: str):
         """This command enables commands which have previously been disabled. This will allow them to be used again.
         It will also add the command back into the list of commands shown by the help command and re-enable the
-        viewing of it's help text given the command has help text and it has not otherwise been hidden."""
+        viewing of it's help text given the command has help text, and it has not otherwise been hidden."""
         if command_name in self.bot.all_commands.keys():  # Check if command exists and get it's state.
             state = await self._command_get_state(self.bot.all_commands[command_name])
             if self.bot.all_commands[command_name].enabled:  # If command is already enabled, report back.
