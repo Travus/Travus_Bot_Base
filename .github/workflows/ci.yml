@@ -21,13 +21,13 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install black flake8 pylint mypy
+          pip install black ruff pylint pyright
           pip install -r requirements.txt
       - name: Check Black style
-        run: black ./*.py modules/*.py --check --line-length 120
-      - name: Lint with flake8
-        run: flake8 ./*.py modules/*.py --count --statistics --max-line-length 120
+        run: black ./*.py modules/*.py
+      - name: Lint with Ruff
+        run: ruff ./*.py modules/*.py
       - name: Lint with pylint
-        run: pylint ./*.py modules/*.py --rcfile pylintrc
-      - name: Lint with mypy
-        run: mypy ./*.py modules/*.py --install-types --non-interactive --ignore-missing-imports
+        run: pylint ./*.py modules/*.py
+      - name: Lint with pyright
+        run: pyright --createstub discord; pyright --createstub asyncpg; pyright ./*.py modules/*.py

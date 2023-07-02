@@ -1,0 +1,108 @@
+[tool.black]
+line-length = 120
+check = true
+
+[tool.flake8]
+max-line-length = 120
+count = true
+statistics = true
+
+[tool.ruff]
+line-length = 120
+select = [
+    "E",  # pycodestyle
+    "F",  # pyflakes
+    "W",  # pycodestyle
+    "B",  # bugbear
+    "I",  # isort
+    "RUF", # ruff
+]
+ignore = [
+    "RUF001",  # string contains ambiguous unicode character
+]
+
+[tool.pylint.basic]
+argument-naming-style = "snake_case"
+attr-naming-style = "snake_case"
+class-attribute-naming-style = "any"
+class-const-naming-style = "UPPER_CASE"
+class-naming-style = "PascalCase"
+const-naming-style = "UPPER_CASE"
+docstring-min-length = -1
+function-naming-style = "snake_case"
+good-names = [
+    "i",
+    "j",
+    "e",
+    "_",
+]
+inlinevar-naming-style = "any"
+method-naming-style = "snake_case"
+module-naming-style = "snake_case"
+no-docstring-rgx = "^_"
+property-classes = [
+    "abc.abstractproperty",
+]
+variable-naming-style = "snake_case"
+
+[tool.pylint.design]
+max-args = 8
+max-attributes = 15
+max-bool-expr = 5
+max-branches = 15
+max-locals = 15
+max-parents = 4
+max-public-methods = 20
+max-returns = 6
+max-statements = 60
+
+[tool.pylint.format]
+ignore-long-lines = "^\\s*(# )?<?https?://\\S+>?$"
+indent-after-paren = 4
+indent-string = "    "
+max-line-length = 120
+max-module-lines = 1000
+
+[tool.pylint.logging]
+logging-modules = [
+    "logging",
+]
+
+[tool.pylint."messages control"]
+confidence = [
+    "HIGH",
+    "CONTROL_FLOW",
+    "INFERENCE",
+    "INFERENCE_FAILURE",
+    "UNDEFINED",
+]
+disable = [
+    "raw-checker-failed",
+    "bad-inline-option",
+    "locally-disabled",
+    "file-ignored",
+    "suppressed-message",
+    "useless-suppression",
+    "deprecated-pragma",
+    "use-symbolic-message-instead",
+    "arguments-renamed",
+    "broad-exception-caught",
+    "consider-using-sys-exit",
+    "fixme",
+    "logging-fstring-interpolation",
+    "missing-module-docstring",
+    "raise-missing-from",
+    "too-few-public-methods",
+    "too-many-locals",
+    "too-many-public-methods",
+]
+
+[tool.pylint.similarities]
+ignore-comments = true
+ignore-docstrings = true
+ignore-imports = true
+ignore-signatures = true
+min-similarity-lines = 4
+
+[tool.pyright]
+reportMissingTypeStubs = true
