@@ -26,12 +26,12 @@ async def main(logger: logging.Logger):
         logger.info("Created modules directory.")
 
     if "config.yml" not in os.listdir("."):
-        logger.critical("Please run setup.py first!")
+        logger.critical("Please run one_time_setup.py first!")
         exit(5)
     with open("config.yml", "r", encoding="utf8") as config_object:
         config = yaml.safe_load(config_object)
         if not all(element in config and config[element] is not None for element in config_options):
-            logger.critical("Config was found, but lacked required options. Please run setup.py first.")
+            logger.critical("Config was found, but lacked required options. Please run one_time_setup.py first.")
             exit(5)
 
     # Validate Discord token.

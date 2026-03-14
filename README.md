@@ -3,11 +3,11 @@
 </p>
 <br/>
 <p align="center">
-    <img alt="Python Version" src="https://img.shields.io/badge/python-3.10-informational"/>
-    <img alt="CI Status" src="https://github.com/Travus/Travus_Bot_Base/actions/workflows/ci.yml/badge.svg?branch=master&event=push">
+    <img alt="Python Version" src="https://img.shields.io/badge/python-3.10+-informational"/>
+    <img alt="CI Status" src="https://github.com/Travus/Travus_Bot_Base/actions/workflows/ci.yml/badge.svg?branch=main&event=push">
     <img alt="TBB License" src="https://img.shields.io/github/license/travus/travus_bot_base">
     <img alt="Code Style Black" src="https://img.shields.io/badge/code%20style-black-000000.svg">
-    <img alt="MyPy Checked" src="http://www.mypy-lang.org/static/mypy_badge.svg">
+    <img alt="Pyright Checked" src="https://img.shields.io/badge/type%20checked-pyright-informational.svg">
 </p>
 <br/><br/>
 
@@ -53,17 +53,17 @@ Now that you have set up the Discord side of the bot, you need to get the progra
 *Option A*:  
 `pip3 install -r setup_requirements.txt`  
 
-*Option B*:  
-`pip3 install -r requirements.txt`
+*Option B*:
+`pip3 install .`
 
-After you have run this command and pip is done installing the required dependencies, start the *setup.py* file that came with the *Travus Bot Base*. Give it the bot token you took a note of in step 2 when it asks for your token and give it the rest of the information it asks for.
+After you have run this command and pip is done installing the required dependencies, start the *one_time_setup.py* file that came with the *Travus Bot Base*. Give it the bot token you took a note of in step 2 when it asks for your token and give it the rest of the information it asks for.
 
-**5: Start the Bot**  
-Now that you have generated the required config file with the *setup.py* file in step 4, you can start the bot itself. This step will go over how to start and stop the bot. Once this step is reached the bot can be started simply by repeating this step, steps 1-4 do not need to be done more than once.
+**5: Start the Bot**
+Now that you have generated the required config file with the *one_time_setup.py* file in step 4, you can start the bot itself. This step will go over how to start and stop the bot. Once this step is reached the bot can be started simply by repeating this step, steps 1-4 do not need to be done more than once.
 
-*Option A*:  
-To start the bot simply run: `docker-compose up --build -d`  
-To stop the bot simply run: `docker-compose down`  
+*Option A*:
+To start the bot simply run: `docker compose up --build -d`
+To stop the bot simply run: `docker compose down`  
 
 *Option B*:  
 To start the bot simply run `main.py` in Python 3.10 or newer.  
