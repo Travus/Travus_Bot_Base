@@ -143,7 +143,7 @@ class CoreFunctionalityCog(commands.Cog):
             )
             if isinstance(e, commands.ExtensionNotFound):  # Clarify error further in case it was an import error.
                 e = e.__cause__
-            self.log.error(f"{ctx.author.id}: tried loading '{mod}' module, and it failed:\n\n{str(e)}")
+            self.log.error(f"{ctx.author.id}: tried loading '{mod}' module, and it failed:\n\n{e!s}")
             self.bot.last_module_error = (
                 f"The `{clean(ctx, mod, False)}` module failed while loading. The error was:\n\n{clean(ctx, str(e))}"
             )
@@ -251,7 +251,7 @@ class CoreFunctionalityCog(commands.Cog):
             if description.count("```") != 2 or description[:3] != "```" or description[-3:] != "```":
                 await ctx.send("Credits must be fully encased in a multi-line code block.")
                 return
-            description = description.strip("```").strip()  # Remove code block.
+            description = description.removeprefix("```").removesuffix("```").strip()  # Remove code block.
             description = description.replace(" ", "\u202f")  # Prevent whitespace from disappearing.
             if len(description) > 1024:
                 await ctx.send("Credits too long. Credits can be at most 1024 characters long.")
@@ -503,7 +503,7 @@ class CoreFunctionalityCog(commands.Cog):
             await ctx.send(f"No `{clean(ctx, command_name)}` command found.")
 
     @commands.command(name="about", alias=["info"], usage="(MODULE NAME)")
-    async def about(self, ctx: commands.Context, *, module_name: str = None):
+    async def about(self, ctx: commands.Context, *, module_name: str | None = None):
         """This command gives information about modules, such as a description, authors, and other credits. Module
         authors can even add a small image to be displayed alongside this info. If no module name is given or the
         bot's name is used then information about the bot itself is shown."""
@@ -523,7 +523,7 @@ class CoreFunctionalityCog(commands.Cog):
             await ctx.send(response)
 
     @commands.command(name="usage", usage="(MODULE NAME)")
-    async def usage(self, ctx: commands.Context, *, module_name: str = None):
+    async def usage(self, ctx: commands.Context, *, module_name: str | None = None):
         """This command explains how a module is intended to be used. If no module name is given it will
         show some basic information about usage of the bot itself."""
         if module_name is None or module_name.lower() in [self.bot.user.name.lower(), "core_commands", "core commands"]:
@@ -664,5 +664,5 @@ class CoreFunctionalityCog(commands.Cog):
                     await ctx.send("The time for this command must be between 0 seconds to 24 hours.")
                 else:  # If another error is encountered, log to console.
                     await ctx.send("The time could not be parsed correctly.")
-                    self.log.error(f"{ctx.author.id}: {str(e)}")
-                    self.bot.last_error = f"{ctx.author.id}: {str(e)}"
+                    self.log.error(f"{ctx.author.id}: {e!s}")
+                    self.bot.last_error = f"{ctx.author.id}: {e!s}"
