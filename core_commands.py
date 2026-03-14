@@ -1,6 +1,7 @@
 import logging
 from asyncio import sleep as asleep  # For waiting asynchronously.
 from os import listdir  # To check files on disk.
+from typing import Optional
 
 from asyncpg import IntegrityConstraintViolationError  # To check for database conflicts.
 from discord import Activity, ActivityType, Embed  # For bot status
@@ -129,7 +130,7 @@ class CoreFunctionalityCog(commands.Cog):
                     "**Error! Something went really wrong! Contact module maintainer.**\nError logged to console and "
                     "stored in module error command."
                 )
-            self.log.error(f"{ctx.author.id}: tried loading '{mod}' module, and it failed:\n\n{str(e)}")
+            self.log.error(f"{ctx.author.id}: tried loading '{mod}' module, and it failed:\n\n{e}")
             self.bot.last_module_error = (
                 f"The `{clean(ctx, mod, False)}` module failed while loading. The error was:\n\n{clean(ctx, str(e))}"
             )
@@ -153,7 +154,7 @@ class CoreFunctionalityCog(commands.Cog):
     @commands.group(invoke_without_command=True, name="botconfig", usage="<prefix/deletemessages/description/credits>")
     async def botconfig(self, ctx: commands.Context):
         """This command sets the bot's prefix, command trigger deletion behaviour, description and additional credits
-        section. Fore more information check the help entry of one of these subcommands; `prefix`, `deletemessages`,
+        section. For more information, check the help entry of one of these subcommands; `prefix`, `deletemessages`,
         `description`, `credits`."""
         raise commands.BadArgument(f"No subcommand given for {ctx.command.name}.")
 
@@ -528,26 +529,26 @@ class CoreFunctionalityCog(commands.Cog):
         if module_name is None or module_name.lower() in [self.bot.user.name.lower(), "core_commands", "core commands"]:
             pref = self.bot.get_bot_prefix()
             response = (
-                f"**How To Use:**\nThis bot features a variety of commands. You can get a list of all commands "
+                "**How To Use:**\nThis bot features a variety of commands. You can get a list of all commands "
                 f"you have access to with the `{pref}help` command. In order to use a command your message has "
                 f"to start with the *bot prefix*, the bot prefix is currently set to `{pref}`. Simply type "
-                f"this prefix, followed by a command name, and you will run the command. For more information "
+                "this prefix, followed by a command name, and you will run the command. For more information "
                 f"on individual commands, run `{pref}help` followed by the command name. This will give you "
-                f"info on the command, along with some examples of it and any aliases the command might have. "
-                f"You might not have access to all commands everywhere, the help command will only tell you "
-                f"about commands you have access to in that channel, and commands you can run only in the DMs "
-                f"with the bot. DM only commands will be labeled as such by the help command.\n\nSome commands "
-                f"accept extra input, an example would be how the help command accepts a command name. You can "
-                f"usually see an example of how the command is used on the command's help page. If you use a "
-                f"command incorrectly by missing some input or sending invalid input, it will send you the "
-                f"expected input. This is how to read the expected input:\n\nArguments encased in `<>` are "
-                f"obligatory.\nArguments encased in `()` are optional and can be skipped.\nArguments written "
-                f"in all uppercase are placeholders like names.\nArguments not written in uppercase are exact "
-                f"values.\nIf an argument lists multiple things separated by `/` then any one of them is valid."
+                "info on the command, along with some examples of it and any aliases the command might have. "
+                "You might not have access to all commands everywhere, the help command will only tell you "
+                "about commands you have access to in that channel, and commands you can run only in the DMs "
+                "with the bot. DM only commands will be labeled as such by the help command.\n\nSome commands "
+                "accept extra input, an example would be how the help command accepts a command name. You can "
+                "usually see an example of how the command is used on the command's help page. If you use a "
+                "command incorrectly by missing some input or sending invalid input, it will send you the "
+                "expected input. This is how to read the expected input:\n\nArguments encased in `<>` are "
+                "obligatory.\nArguments encased in `()` are optional and can be skipped.\nArguments written "
+                "in all uppercase are placeholders like names.\nArguments not written in uppercase are exact "
+                "values.\nIf an argument lists multiple things separated by `/` then any one of them is valid."
                 f"\nThe `<>` and `()` symbols are not part of the command.\n\nSample expected input: `{pref}"
                 f"about (MODULE NAME)`\nHere `{pref}about` is the command, and it takes an optional argument. "
-                f"The argument is written in all uppercase, so it is a placeholder. In other words you are "
-                f"expected to replace 'MODULE NAME' with the actual name of a module. Since the module name is "
+                "The argument is written in all uppercase, so it is a placeholder. In other words you are "
+                "expected to replace 'MODULE NAME' with the actual name of a module. Since the module name is "
                 f"optional, sending just `{pref}about` is also a valid command."
             )
             await ctx.send(response)
@@ -642,7 +643,7 @@ class CoreFunctionalityCog(commands.Cog):
 
     @commands.is_owner()
     @commands.command(name="shutdown", aliases=["goodbye", "goodnight"], usage="(TIME BEFORE SHUTDOWN)")
-    async def shutdown(self, ctx: commands.Context, countdown: str = None):
+    async def shutdown(self, ctx: commands.Context, countdown: Optional[str] = None):
         """This command turns the bot off. A delay can be set causing the bot to wait before shutting down. The time
         uses a format of numbers followed by units, see examples for details. Times supported are weeks (w), days (d),
         hours (h), minutes (m) and seconds (s), and even negative numbers. For this command the delay must be between
