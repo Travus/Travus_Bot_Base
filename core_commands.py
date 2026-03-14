@@ -156,6 +156,7 @@ class CoreFunctionalityCog(commands.Cog):
         """This command sets the bot's prefix, command trigger deletion behaviour, description and additional credits
         section. For more information, check the help entry of one of these subcommands; `prefix`, `deletemessages`,
         `description`, `credits`."""
+        assert ctx.command is not None
         raise commands.BadArgument(f"No subcommand given for {ctx.command.name}.")
 
     @commands.is_owner()
@@ -221,6 +222,7 @@ class CoreFunctionalityCog(commands.Cog):
         up to 4096 characters long, keep however in mind that Discord messages have a maximum length of 4000 characters
         (2000 without Nitro). If `remove` is sent along then the description will be removed. The special keyword
         `_prefix_` wil be replaced by the current bot prefix."""
+        assert self.bot.user is not None
         async with self.bot.db.acquire() as conn:
             if description.lower() == "remove":
                 await conn.execute("UPDATE settings SET value = '' WHERE key = 'bot_description'")
@@ -241,6 +243,7 @@ class CoreFunctionalityCog(commands.Cog):
         recommended. Embedded links should look like so; `[displayed text](URL)`. The credits should be passed inside a
         multi-line code block in order for new lines and tabs to work correctly. If `remove` is passed instead then the
         additional credits section is removed."""
+        assert self.bot.user is not None
         description = description.strip()
         async with self.bot.db.acquire() as conn:
             if description.lower() == "remove":
@@ -270,6 +273,7 @@ class CoreFunctionalityCog(commands.Cog):
         modules is to extend the bot's functionality in semi-independent packages so that parts of the bot's
         functionality can be removed or restarted without affecting the rest of the bot's functionality. See the help
         text for the subcommands for more info."""
+        assert ctx.command is not None
         raise commands.BadArgument(f"No subcommand given for {ctx.command.name}.")
 
     @commands.has_permissions(administrator=True)
@@ -348,6 +352,7 @@ class CoreFunctionalityCog(commands.Cog):
         """This command is used to add, remove or list default modules. Modules contain added functionality, such as
         commands. Default modules are loaded automatically when the bot starts and as such any functionality in them
         will be available as soon as the bot is online. For more info see the help text of the subcommands."""
+        assert ctx.command is not None
         raise commands.BadArgument(f"No subcommand given for {ctx.command.name}.")
 
     @commands.is_owner()
@@ -408,6 +413,7 @@ class CoreFunctionalityCog(commands.Cog):
         the overall help command list. Disabling a command means it can't be used. Disabled commands also do not show
         up in the overall help command list and the specific help text for the command will not be viewable. Core
         commands cannot be disabled. These settings are saved across restarts."""
+        assert ctx.command is not None
         raise commands.BadArgument(f"No subcommand given for {ctx.command.name}.")
 
     async def _command_get_state(self, command: commands.Command) -> int:
@@ -507,6 +513,7 @@ class CoreFunctionalityCog(commands.Cog):
         """This command gives information about modules, such as a description, authors, and other credits. Module
         authors can even add a small image to be displayed alongside this info. If no module name is given or the
         bot's name is used then information about the bot itself is shown."""
+        assert self.bot.user is not None
         if module_name is None:  # If no value is passed along we display the about page for the bot itself.
             if self.bot.user.name.lower() in self.bot.modules.keys():  # Check if the bot has an entry.
                 embed = self.bot.modules[self.bot.user.name.lower()].make_about_embed(ctx)  # Make and send response.
@@ -526,6 +533,7 @@ class CoreFunctionalityCog(commands.Cog):
     async def usage(self, ctx: commands.Context, *, module_name: str | None = None):
         """This command explains how a module is intended to be used. If no module name is given it will
         show some basic information about usage of the bot itself."""
+        assert self.bot.user is not None
         if module_name is None or module_name.lower() in [self.bot.user.name.lower(), "core_commands", "core commands"]:
             pref = self.bot.get_bot_prefix()
             response = (
@@ -574,6 +582,7 @@ class CoreFunctionalityCog(commands.Cog):
         """This command is used to get, set and unset configuration options used by other modules or commands. All
         config options are saves as strings. Converting them to the proper type is up to the module or command that
         uses them. See the help text for the subcommands for more info."""
+        assert ctx.command is not None
         raise commands.BadArgument(f"No subcommand given for {ctx.command.name}.")
 
     @commands.has_permissions(administrator=True)

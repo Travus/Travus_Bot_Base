@@ -102,4 +102,4 @@ ignore-signatures = true
 min-similarity-lines = 4
 
 [tool.pyright]
-reportMissingTypeStubs = true
+reportMissingTypeStubs = false

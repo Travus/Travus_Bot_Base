@@ -107,32 +107,32 @@ class GlobalChannel(commands.Converter):
     """Custom converter that returns user, or channel be it in the current server or another."""
 
     async def convert(
-        self, ctx: Context, channel: str
+        self, ctx: Context, argument: str
     ) -> CategoryChannel | DMChannel | ForumChannel | GroupChannel | StageChannel | TextChannel | Thread | VoiceChannel:
         """Converter method used by discord.py."""
-        if isinstance(channel, str) and channel.lower() in ["here", "."]:
+        if isinstance(argument, str) and argument.lower() in ["here", "."]:
             if isinstance(ctx.channel, PartialMessageable):
                 raise commands.UserInputError(f"Unable to get channel details for channel ID: {ctx.channel.id}")
             return ctx.channel  # Get current channel if asked for.
-        if isinstance(channel, str) and channel.lower() in ["dm", "dms", "pm", "pms"]:
+        if isinstance(argument, str) and argument.lower() in ["dm", "dms", "pm", "pms"]:
             dm_channel = ctx.author.dm_channel or await ctx.author.create_dm()  # Get DM channel if asked for.
             return dm_channel
         try:
-            user = await commands.UserConverter().convert(ctx, channel)
+            user = await commands.UserConverter().convert(ctx, argument)
             dm_channel = user.dm_channel or await user.create_dm()
             return dm_channel
         except commands.UserNotFound:
             pass
         try:
-            return await commands.TextChannelConverter().convert(ctx, channel)
+            return await commands.TextChannelConverter().convert(ctx, argument)
         except commands.ChannelNotFound:  # Channel not in server.
             pass
         try:
-            return await commands.ThreadConverter().convert(ctx, channel)
+            return await commands.ThreadConverter().convert(ctx, argument)
         except commands.ThreadNotFound:
             pass
         try:
-            converted = ctx.bot.get_channel(int(channel))
+            converted = ctx.bot.get_channel(int(argument))
             if converted is None:
                 raise commands.UserInputError("Could not identify channel.")
             return converted
@@ -144,34 +144,34 @@ class GlobalTextChannel(commands.Converter):
     """Custom converter that returns user, or text channel be it in the current server or another."""
 
     async def convert(
-        self, ctx: Context, text_channel: str
+        self, ctx: Context, argument: str
     ) -> DMChannel | ForumChannel | GroupChannel | TextChannel | Thread:
         """Converter method used by discord.py."""
-        if isinstance(text_channel, str) and text_channel.lower() in ["here", "."]:
+        if isinstance(argument, str) and argument.lower() in ["here", "."]:
             if isinstance(ctx.channel, PartialMessageable):
                 raise commands.UserInputError(f"Unable to get channel details for channel ID: {ctx.channel.id}")
             if isinstance(ctx.channel, VoiceChannel):
                 raise commands.UserInputError("Channel is voice and not text channel.")
             return ctx.channel  # Get current channel if asked for.
-        if isinstance(text_channel, str) and text_channel.lower() in ["dm", "dms", "pm", "pms"]:
+        if isinstance(argument, str) and argument.lower() in ["dm", "dms", "pm", "pms"]:
             dm_channel = ctx.author.dm_channel or await ctx.author.create_dm()  # Get DM channel if asked for.
             return dm_channel
         try:
-            user = await commands.UserConverter().convert(ctx, text_channel)
+            user = await commands.UserConverter().convert(ctx, argument)
             dm_channel = user.dm_channel or await user.create_dm()
             return dm_channel
         except commands.UserNotFound:
             pass
         try:
-            return await commands.TextChannelConverter().convert(ctx, text_channel)
+            return await commands.TextChannelConverter().convert(ctx, argument)
         except commands.ChannelNotFound:  # Channel not in server.
             pass
         try:
-            return await commands.ThreadConverter().convert(ctx, text_channel)
+            return await commands.ThreadConverter().convert(ctx, argument)
         except commands.ThreadNotFound:
             pass
         try:
-            converted = await ctx.bot.fetch_channel(int(text_channel))
+            converted = await ctx.bot.fetch_channel(int(argument))
             if not converted or not isinstance(converted, (GroupChannel, ForumChannel, TextChannel, Thread)):
                 raise commands.UserInputError("Could not identify text channel.")
             return converted
@@ -295,7 +295,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
     class _CustomHelp(commands.HelpCommand):
         """Class for custom help command."""
 
-        context: TBBContext
+        context: TBBContext  # pyright: ignore[reportIncompatibleVariableOverride]
 
         def __init__(self):
             """Initialization function that sets help and usage text for custom help command."""
@@ -548,7 +548,8 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
         """Returns the current bot prefix, or a mention of the bot in text form followed by a space."""
         if self.prefix is not None:
             return self.prefix
-        return f"@{self.user.display_name}#{self.user.discriminator} "
+        assert self.user is not None
+        return f"{self.user.mention} "
 
     def check_dependencies(self, dependencies: list[str]):
         """Checks if all dependencies are met. Raises DependencyError with the missing dependencies if not."""
@@ -650,6 +651,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
     async def on_ready(self):
         """This function runs every time the bot connects to Discord. This happens multiple times.
         Sets about command and bot status. These require the bot to be online and hence are in here."""
+        assert self.user is not None
         if self.user.name.lower() not in self.modules:
             async with self.db.acquire() as conn:
                 bot_credits = await conn.fetchval("SELECT value FROM settings WHERE key = 'additional_credits'")
@@ -698,7 +700,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
         ):
             pass
         elif isinstance(error, commands.UserInputError):  # Send correct syntax based on command usage variable.
-            if hasattr(ctx.command, "usage") and ctx.command.usage:
+            if ctx.command is not None and ctx.command.usage:
                 await ctx.send(
                     f"Correct syntax: `{self.get_bot_prefix()}"
                     f"{ctx.command.full_parent_name + ' ' if ctx.command.full_parent_name else ''}"
@@ -715,7 +717,8 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
             self.log.warning(f"{ctx.author.id}: Command '{ctx.command}' requires role: {error.missing_role}")
         elif isinstance(error, commands.MissingAnyRole):  # Log to console.
             self.log.warning(
-                f"{ctx.author.id}: Command '{ctx.command}' requires role: {' or '.join(error.missing_roles)}"
+                f"{ctx.author.id}: Command '{ctx.command}' requires role: "
+                f"{' or '.join(str(r) for r in error.missing_roles)}"
             )
         elif isinstance(error, commands.CommandNotFound):  # Log to console.
             self.log.warning(f"{ctx.author.id}: {error}")
@@ -758,21 +761,26 @@ async def send_in_global_channel(ctx: Context, channel: Optional[GlobalTextChann
     """Sends a message in any text channel across servers and DMs. Has flag to allow sending to foreign DMs."""
     user = ctx.author
     try:
-        if isinstance(channel, (User, Member)) and channel.id != user.id and not other_dms:
-            await ctx.send("Sending messages to another user's DMs is forbidden.")
-        elif isinstance(channel, (User, Member)) and (channel.id == user.id or other_dms):
-            await channel.send(msg)
-        elif (isinstance(channel, TextChannel) and channel.permissions_for(user).send_messages) or channel is None:
-            await (channel or ctx.channel).send(msg)
-        elif isinstance(channel, Thread):
+        if isinstance(channel, DMChannel):
+            if channel.recipient and channel.recipient.id != user.id and not other_dms:
+                await ctx.send("Sending messages to another user's DMs is forbidden.")
+            else:
+                await channel.send(msg)
+        elif channel is None:
+            await ctx.channel.send(msg)
+        elif isinstance(channel, TextChannel) and isinstance(user, Member):
+            if channel.permissions_for(user).send_messages:
+                await channel.send(msg)
+            else:
+                await ctx.send("You do not have permission to send messages in this channel.")
+        elif isinstance(channel, Thread) and isinstance(user, Member):
             if not channel.permissions_for(user).send_messages_in_threads or channel.locked or channel.archived:
                 await ctx.send("You do not have permission to send messages in this thread.")
+            elif channel.is_private():
+                if user not in await channel.fetch_members() and not channel.permissions_for(user).manage_threads:
+                    await ctx.send("You do not have permission to send messages in this private thread.")
             else:
-                if channel.is_private():
-                    if user not in await channel.fetch_members() and not channel.permissions_for(user).manage_threads:
-                        await ctx.send("You do not have permission to send messages in this private thread.")
-                else:
-                    await channel.send(msg)
+                await channel.send(msg)
         else:
             await ctx.send("You do not have permission to send messages in this channel.")
     except Forbidden:
