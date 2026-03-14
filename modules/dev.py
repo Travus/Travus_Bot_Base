@@ -54,7 +54,7 @@ async def mystbin_send(text: str, line_length: int | None = None) -> Optional[st
                     wrapped = wrap(line, width=line_length)
                     line = ""
                     for w_line in wrapped[:-1]:
-                        line += f"{w_line} ↩\n"
+                        line += f"{w_line} ↩\n"  # pylint: disable=consider-using-join
                     line += wrapped[-1]
             text = "\n".join(lines)
         async with ClientSession() as session:
@@ -83,7 +83,7 @@ class DevCog(commands.Cog):
                         wrapped = wrap(line, width=198)
                         line = ""
                         for w_line in wrapped[:-1]:
-                            line += f"{w_line} ↩\n"
+                            line += f"{w_line} ↩\n"  # pylint: disable=consider-using-join
                         line += wrapped[-1]
                 text = "\n".join(lines)
                 async with aiohttp.ClientSession() as session:

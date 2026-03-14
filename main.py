@@ -36,7 +36,7 @@ async def main(logger: logging.Logger):
 
     # Validate Discord token.
     headers = {"Authorization": f"Bot {config['discord_token']}"}
-    response = requests.get("https://discordapp.com/api/users/@me", headers=headers)
+    response = requests.get("https://discordapp.com/api/users/@me", headers=headers, timeout=10)
     if not response.ok:
         logger.critical("Error: Login failure, bot token is likely wrong or Discord is down.")
         exit(2)

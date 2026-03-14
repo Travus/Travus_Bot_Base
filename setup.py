@@ -29,7 +29,7 @@ def main():
         token = input("> ").strip()
         clr()
         headers = {"Authorization": f"Bot {token}"}
-        response = requests.get("https://discordapp.com/api/users/@me", headers=headers)
+        response = requests.get("https://discordapp.com/api/users/@me", headers=headers, timeout=10)
         if response.ok:
             token_ok = True
             settings["discord_token"] = token

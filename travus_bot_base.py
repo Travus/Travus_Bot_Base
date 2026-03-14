@@ -508,9 +508,8 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
                 self.log.error(f"Default module '{module}' encountered and error.\n\n{e!s}")
                 self.last_module_error = f"The `{module}` module failed while loading. The error was:\n\n{e!s}"
                 return False
-            else:
-                self.log.info(f"Default module '{module}' loaded.")
-                return True
+            self.log.info(f"Default module '{module}' loaded.")
+            return True
 
         async with self.db.acquire() as conn:
             default_modules = await conn.fetch("SELECT module FROM default_modules")
@@ -786,8 +785,7 @@ async def can_run(command: Command, ctx: Context) -> bool:
         await command.can_run(ctx)
     except commands.CommandError:
         return False
-    else:
-        return True
+    return True
 
 
 def cur_time() -> str:
