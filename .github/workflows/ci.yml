@@ -2,10 +2,10 @@ name: Lint
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
     paths: [ '**.py' ]
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
     paths: [ '**.py' ]
 
 jobs:
@@ -13,21 +13,21 @@ jobs:
     name: Lint Code
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Python 3.10
-        uses: actions/checkout@v2
-      - uses: actions/setup-python@v1
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.12'
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install black ruff pylint pyright
-          pip install -r requirements.txt
+          pip install ".[dev]"
       - name: Check Black style
-        run: black ./*.py modules/*.py
+        run: black --check ./*.py modules/*.py
       - name: Lint with Ruff
-        run: ruff ./*.py modules/*.py
+        run: ruff check ./*.py modules/*.py
       - name: Lint with pylint
         run: pylint ./*.py modules/*.py
       - name: Lint with pyright
-        run: pyright --createstub discord; pyright --createstub asyncpg; pyright ./*.py modules/*.py
+        run: pyright ./*.py modules/*.py
