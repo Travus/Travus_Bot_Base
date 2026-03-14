@@ -224,9 +224,9 @@ class CoreFunctionalityCog(commands.Cog):
         async with self.bot.db.acquire() as conn:
             if description.lower() == "remove":
                 await conn.execute("UPDATE settings SET value = '' WHERE key = 'bot_description'")
-                self.bot.modules[
-                    self.bot.user.name.lower()
-                ].description = "No description for the bot found. Set description with `botconfig` command."
+                self.bot.modules[self.bot.user.name.lower()].description = (
+                    "No description for the bot found. Set description with `botconfig` command."
+                )
                 await ctx.send("The description has been removed.")
             else:
                 await conn.execute("UPDATE settings SET value = $1 WHERE key = 'bot_description'", description)
@@ -252,7 +252,7 @@ class CoreFunctionalityCog(commands.Cog):
                 await ctx.send("Credits must be fully encased in a multi-line code block.")
                 return
             description = description.strip("```").strip()  # Remove code block.
-            description = description.replace(" ", "\u202F")  # Prevent whitespace from disappearing.
+            description = description.replace(" ", "\u202f")  # Prevent whitespace from disappearing.
             if len(description) > 1024:
                 await ctx.send("Credits too long. Credits can be at most 1024 characters long.")
                 return

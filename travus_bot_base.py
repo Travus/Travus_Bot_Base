@@ -267,9 +267,9 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
             self.get_prefix = get_prefix
             self.name = name
             # Convert tabs to non-skipped spaces.
-            self.author = author.replace("\t", "\u202F\u202F\u202F\u202F\u202F")
+            self.author = author.replace("\t", "\u202f\u202f\u202f\u202f\u202f")
             self.description = description.replace("\n", " ") if description else "No module description found."
-            self.credits = extra_credits.replace("\t", "\u202F\u202F\u202F\u202F\u202F") if extra_credits else None
+            self.credits = extra_credits.replace("\t", "\u202f\u202f\u202f\u202f\u202f") if extra_credits else None
             self.image = image_link
             self.usage = usage
 
