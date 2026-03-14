@@ -9,12 +9,15 @@ import discord
 from aiohttp import ClientConnectorError as CCError  # To detect connection errors.
 from discord import (
     CategoryChannel,
+    DMChannel,
     Embed,
     Forbidden,
+    ForumChannel,
     GroupChannel,
     Interaction,
     Member,
     Message,
+    PartialMessageable,
     StageChannel,
     TextChannel,
     Thread,
@@ -61,12 +64,15 @@ def required_config(requirements: Iterable[str]):
     """Function that makes sure config options are set."""
 
     async def predicate(predicate_ctx: Context) -> bool:
+        if predicate_ctx.command is None:
+            BOT_LOG.error("Required config was used on non-command, this is not supported")
+            return True
         missing = [f"`{requirement}`" for requirement in requirements if requirement not in predicate_ctx.bot.config]
         missing_str = ", ".join(missing)[:1850]
         if missing_str:
             await predicate_ctx.send(
                 f"This command requires the following missing configuration options to be set: {missing_str}.\nPlease "
-                f"contact an administrator for assistance."
+                "contact an administrator for assistance."
             )
             raise ConfigError(f"Command {predicate_ctx.command.qualified_name} missing config options: {missing_str}")
         return not missing_str
@@ -101,14 +107,19 @@ class GlobalChannel(commands.Converter):
 
     async def convert(
         self, ctx: Context, channel: str
-    ) -> TextChannel | VoiceChannel | StageChannel | CategoryChannel | GroupChannel | User | Thread:
+    ) -> CategoryChannel | DMChannel | ForumChannel | GroupChannel | StageChannel | TextChannel | Thread | VoiceChannel:
         """Converter method used by discord.py."""
         if isinstance(channel, str) and channel.lower() in ["here", "."]:
+            if isinstance(ctx.channel, PartialMessageable):
+                raise commands.UserInputError(f"Unable to get channel details for channel ID: {ctx.channel.id}")
             return ctx.channel  # Get current channel if asked for.
         if isinstance(channel, str) and channel.lower() in ["dm", "dms", "pm", "pms"]:
-            return ctx.author  # Get DM channel if asked for.
+            dm_channel = ctx.author.dm_channel or await ctx.author.create_dm()  # Get DM channel if asked for.
+            return dm_channel
         try:
-            return await commands.UserConverter().convert(ctx, channel)
+            user = await commands.UserConverter().convert(ctx, channel)
+            dm_channel = user.dm_channel or await user.create_dm()
+            return dm_channel
         except commands.UserNotFound:
             pass
         try:
@@ -131,14 +142,23 @@ class GlobalChannel(commands.Converter):
 class GlobalTextChannel(commands.Converter):
     """Custom converter that returns user, or text channel be it in the current server or another."""
 
-    async def convert(self, ctx: Context, text_channel: str) -> TextChannel | GroupChannel | User | Thread:
+    async def convert(
+        self, ctx: Context, text_channel: str
+    ) -> DMChannel | ForumChannel | GroupChannel | TextChannel | Thread:
         """Converter method used by discord.py."""
         if isinstance(text_channel, str) and text_channel.lower() in ["here", "."]:
+            if isinstance(ctx.channel, PartialMessageable):
+                raise commands.UserInputError(f"Unable to get channel details for channel ID: {ctx.channel.id}")
+            if isinstance(ctx.channel, VoiceChannel):
+                raise commands.UserInputError("Channel is voice and not text channel.")
             return ctx.channel  # Get current channel if asked for.
         if isinstance(text_channel, str) and text_channel.lower() in ["dm", "dms", "pm", "pms"]:
-            return ctx.author  # Get DM channel if asked for.
+            dm_channel = ctx.author.dm_channel or await ctx.author.create_dm()  # Get DM channel if asked for.
+            return dm_channel
         try:
-            return await commands.UserConverter().convert(ctx, text_channel)
+            user = await commands.UserConverter().convert(ctx, text_channel)
+            dm_channel = user.dm_channel or await user.create_dm()
+            return dm_channel
         except commands.UserNotFound:
             pass
         try:
@@ -151,7 +171,7 @@ class GlobalTextChannel(commands.Converter):
             pass
         try:
             converted = await ctx.bot.fetch_channel(int(text_channel))
-            if not converted or not isinstance(converted, (TextChannel, GroupChannel, User, Thread)):
+            if not converted or not isinstance(converted, (GroupChannel, ForumChannel, TextChannel, Thread)):
                 raise commands.UserInputError("Could not identify text channel.")
             return converted
         except ValueError:
@@ -177,8 +197,8 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
             get_prefix: Callable,
             command: Command,
             category: str = "no category",
-            restrictions: dict[str, list[str] | str] = None,
-            examples: list[str] = None,
+            restrictions: Optional[dict[str, list[str] | str]] = None,
+            examples: Optional[list[str]] = None,
         ):
             """Initialization function loading all necessary information for HelpInfo class."""
             res = restrictions  # Shortening often used variable name.
@@ -369,7 +389,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
     def __init__(self, database_credentials: DatabaseCredentials, *args, **kwargs):
         """Initialization function loading all necessary information for TravusBotBase class."""
         super().__init__(*args, **kwargs)
-        self.log = BOT_LOG
+        self.log: logging.Logger = BOT_LOG
         self.last_module_error: Optional[str] = None
         self.last_error: Optional[str] = None
         self.extension_ctx: Optional[Context] = None
@@ -695,7 +715,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
             self.log.warning(f"{ctx.author.id}: Command '{ctx.command}' requires role: {error.missing_role}")
         elif isinstance(error, commands.MissingAnyRole):  # Log to console.
             self.log.warning(
-                f"{ctx.author.id}: Command '{ctx.command}' requires role: " f"{' or '.join(error.missing_roles)}"
+                f"{ctx.author.id}: Command '{ctx.command}' requires role: {' or '.join(error.missing_roles)}"
             )
         elif isinstance(error, commands.CommandNotFound):  # Log to console.
             self.log.warning(f"{ctx.author.id}: {error}")
