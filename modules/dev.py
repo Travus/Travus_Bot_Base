@@ -44,7 +44,7 @@ async def teardown(bot: tbb.TravusBotBase):
     bot.remove_command_help(DevCog)
 
 
-async def mystbin_send(text: str, line_length: int = None) -> Optional[str]:
+async def mystbin_send(text: str, line_length: int | None = None) -> Optional[str]:
     """Send the text if it's short enough, otherwise links to a Mystbin of the text."""
     if text is not None:
         if line_length:
@@ -73,7 +73,7 @@ class DevCog(commands.Cog):
         self._last_result = None
 
     @staticmethod
-    async def _mystbin_send(ctx: commands.Context, text: str = None):
+    async def _mystbin_send(ctx: commands.Context, text: str | None = None):
         """Send the text if it's short enough, otherwise links to a Mystbin of the text."""
         if text is not None:
             if len(text) > 1950:

@@ -1,7 +1,8 @@
 import copy
 import logging
 import os
-from re import compile as re_cmp, findall  # Regex functions used in clean function for detecting mentions.
+from re import compile as re_cmp  # Regex functions used in clean function for detecting mentions.
+from re import findall
 from typing import Any, Callable, Iterable, Optional, Type, TypeVar
 
 import asyncpg
@@ -136,7 +137,7 @@ class GlobalChannel(commands.Converter):
                 raise commands.UserInputError("Could not identify channel.")
             return converted
         except ValueError:
-            raise commands.UserInputError("Could not identify channel.")
+            raise commands.UserInputError("Could not identify channel.") from None
 
 
 class GlobalTextChannel(commands.Converter):
@@ -175,7 +176,7 @@ class GlobalTextChannel(commands.Converter):
                 raise commands.UserInputError("Could not identify text channel.")
             return converted
         except ValueError:
-            raise commands.UserInputError("Could not identify text channel.")
+            raise commands.UserInputError("Could not identify text channel.") from None
 
 
 class TBBContext(commands.Context):
@@ -434,7 +435,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
         self.prefix = loaded_prefix or None
         self.delete_messages = int(delete_msgs) if delete_msgs is not None else 1
         self.add_command_help(
-            [com for com in self.commands if com.name == "help"][0], "Core", None, ["", "about", "help"]
+            next(com for com in self.commands if com.name == "help"), "Core", None, ["", "about", "help"]
         )  # Add help info for help command.
         for key, value in [(pair["key"], pair["value"]) for pair in config]:
             self.config[key] = value
@@ -494,8 +495,8 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
                                 return True
                         except Exception as ee:
                             e = ee
-                self.log.error(f"Default module '{module}' encountered and error.\n\n{str(e)}")
-                self.last_module_error = f"The `{module}` module failed while loading. The error was:\n\n{str(e)}"
+                self.log.error(f"Default module '{module}' encountered and error.\n\n{e!s}")
+                self.last_module_error = f"The `{module}` module failed while loading. The error was:\n\n{e!s}"
                 return False
             except Exception as e:  # If en error was encountered while loading default module, roll back.
                 self.help = old_help
@@ -504,8 +505,8 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
                     raise
                 if isinstance(e, commands.ExtensionNotFound):  # If import error, clarify further.
                     e = e.__cause__
-                self.log.error(f"Default module '{module}' encountered and error.\n\n{str(e)}")
-                self.last_module_error = f"The `{module}` module failed while loading. The error was:\n\n{str(e)}"
+                self.log.error(f"Default module '{module}' encountered and error.\n\n{e!s}")
+                self.last_module_error = f"The `{module}` module failed while loading. The error was:\n\n{e!s}"
                 return False
             else:
                 self.log.info(f"Default module '{module}' loaded.")
@@ -618,8 +619,8 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
         self,
         command,
         category: str = "no category",
-        restrictions: dict[str, list[str] | str] = None,
-        examples: list[str] = None,
+        restrictions: dict[str, list[str] | str] | None = None,
+        examples: list[str] | None = None,
     ):
         """Function that is used to add help info to the bot correctly. Used to minimize developmental errors. Command
         should be either a command or a command group."""
@@ -728,7 +729,9 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
         self.last_error = f"[{cur_time()}] {ctx.author.id}: {error}"
 
 
-def parse_time(duration: str, minimum: int = None, maximum: int = None, error_on_exceeded: bool = True) -> int:
+def parse_time(
+    duration: str, minimum: int | None = None, maximum: int | None = None, error_on_exceeded: bool = True
+) -> int:
     """Function that parses time in a NhNmNs format. Supports weeks, days, hours, minutes and seconds, positive and
     negative amounts and max values. Minimum and maximum values can be set (in seconds), and whether an error should
     occur or the max / min value should be used when these are exceeded."""
@@ -760,7 +763,7 @@ async def send_in_global_channel(ctx: Context, channel: Optional[GlobalTextChann
             await ctx.send("Sending messages to another user's DMs is forbidden.")
         elif isinstance(channel, (User, Member)) and (channel.id == user.id or other_dms):
             await channel.send(msg)
-        elif isinstance(channel, TextChannel) and channel.permissions_for(user).send_messages or channel is None:
+        elif (isinstance(channel, TextChannel) and channel.permissions_for(user).send_messages) or channel is None:
             await (channel or ctx.channel).send(msg)
         elif isinstance(channel, Thread):
             if not channel.permissions_for(user).send_messages_in_threads or channel.locked or channel.archived:
