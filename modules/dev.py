@@ -7,7 +7,7 @@ from typing import Optional  # For type-hinting.
 
 import aiohttp  # To send info to mystbin.
 from aiohttp import ClientSession
-from discord import Member, Role  # For type-hinting and exceptions.
+from discord import DMChannel, Member, Role  # For type-hinting and exceptions.
 from discord.ext import commands  # For implementation of bot commands.
 
 import travus_bot_base as tbb  # TBB functions and classes.
@@ -172,15 +172,16 @@ class DevCog(commands.Cog):
         """This command lets you run commands as another user, optionally in other channels. If the channel argument is
         skipped and the bot fails to parse the argument as a channel it will ignore the channel argument and move on to
         parsing the command instead. In this case the command will be sent from the channel you are currently in."""
-        if isinstance(channel, Member):
+        if isinstance(channel, DMChannel):
             await ctx.send("Cannot sudo into DMs.")
             return
         new_msg = copy(ctx.message)
-        new_msg.channel = channel or ctx.channel
-        new_msg.author = new_msg.channel.guild.get_member(user.id)
+        new_msg.channel = channel or ctx.channel  # type: ignore[assignment]  # Converter resolves to real channel type.
+        new_msg.author = new_msg.channel.guild.get_member(user.id)  # type: ignore[union-attr]  # DM filtered above.
         if new_msg.author is None:
             await ctx.send("Target user is not in target server.")
             return
+        assert ctx.prefix is not None
         new_msg.content = ctx.prefix + cmd
         new_ctx = await self.bot.get_context(new_msg, cls=type(ctx))
         await self.bot.invoke(new_ctx)
@@ -192,6 +193,7 @@ class DevCog(commands.Cog):
         """This command gives you role IDs of one or all roles in the server depending on if a role or `all` is passed
         along. You can also pass along a channel, in this server or otherwise, in which case the response is sent in
         that channel. Sending `dm` instead of a channel will send you the result in direct messages."""
+        assert ctx.guild is not None
         paginator = commands.Paginator()
         if isinstance(role, str) and role.lower() == "all":
             for _role in reversed(ctx.guild.roles):
@@ -217,6 +219,7 @@ class DevCog(commands.Cog):
         is passed along. You can also pass along a second channel, in this server or otherwise, in which case the
         response is sent in that channel. Sending `dm` instead of a second channel will send you the result in direct
         messages."""
+        assert ctx.guild is not None
         response = ""
         paginator = commands.Paginator()
         if isinstance(channel, str) and channel.lower() == "all":
@@ -230,7 +233,7 @@ class DevCog(commands.Cog):
             raise commands.BadArgument("Channel could not be parsed and string is not 'all'.")
         else:
             if hasattr(channel, "name") and hasattr(channel, "id"):
-                response = f"{channel.name}: {channel.id}"
+                response = f"{channel.name}: {channel.id}"  # type: ignore[union-attr]
         await tbb.send_in_global_channel(ctx, resp_channel, f"```{response}```")
 
     @commands.has_permissions(administrator=True)
