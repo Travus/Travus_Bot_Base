@@ -1,20 +1,16 @@
 [tool.black]
 line-length = 120
-check = true
-
-[tool.flake8]
-max-line-length = 120
-count = true
-statistics = true
 
 [tool.ruff]
 line-length = 120
+
+[tool.ruff.lint]
 select = [
-    "E",  # pycodestyle
-    "F",  # pyflakes
-    "W",  # pycodestyle
-    "B",  # bugbear
-    "I",  # isort
+    "E",   # pycodestyle
+    "F",   # pyflakes
+    "W",   # pycodestyle
+    "B",   # bugbear
+    "I",   # isort
     "RUF", # ruff
 ]
 ignore = [
