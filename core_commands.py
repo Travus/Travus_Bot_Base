@@ -104,7 +104,7 @@ class CoreFunctionalityCog(commands.Cog):
                 else:
                     await ctx.send(f"No `{mod_name}` module was found.")
 
-        old_help = dict(self.bot.help)  # Save old help and module info in we need to roll back.
+        old_help = dict(self.bot.help)  # Save old help and module info in case we need to roll back.
         old_modules = dict(self.bot.modules)
         self.bot.extension_ctx = ctx  # Save context in case loaded module has use for it.
         mod_name = clean(ctx, mod, False, True)
