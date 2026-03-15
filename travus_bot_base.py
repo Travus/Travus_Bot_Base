@@ -135,7 +135,7 @@ class GlobalTextChannel(commands.Converter):
 
     async def convert(
         self, ctx: Context, argument: str
-    ) -> DMChannel | ForumChannel | GroupChannel | TextChannel | Thread:
+    ) -> DMChannel | ForumChannel | GroupChannel | StageChannel | TextChannel | Thread:
         """Converter method used by discord.py."""
         if isinstance(argument, str) and argument.lower() in ["here", "."]:
             if isinstance(ctx.channel, PartialMessageable):
@@ -510,8 +510,14 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
             await load_module(default_modules, mod)
         await self.update_command_states()  # Make sure commands are in the right state. (hidden, disabled)
 
+    async def setup_hook(self):
+        """Called after the bot is logged in but before connecting to the gateway. Loads DB options and commands."""
+        await self._load_db_options()
+        await self._load_default_commands()
+        self.loop.create_task(self._load_default_modules())  # Runs after bot is ready (waits internally).
+
     async def start(self, token: str, *, reconnect: bool = True):
-        """Connect to the database and load default data, commands, and modules, then start the bot."""
+        """Connect to the database and start the bot."""
         try:
             async with asyncpg.create_pool(
                 user=self._db_creds.user,
@@ -521,9 +527,6 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
                 database=self._db_creds.database,
             ) as pool:
                 self.db = pool
-                await self._load_db_options()
-                await self._load_default_commands()
-                await self._load_default_modules()  # Waits for bot to be ready
                 await super().start(token, reconnect=reconnect)
         except asyncpg.exceptions.InvalidCatalogNameError:
             self.log.critical("Error: Failed to connect to database. Database name not found.")
