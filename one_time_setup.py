@@ -1,4 +1,3 @@
-import os
 from time import sleep
 
 import requests
@@ -7,7 +6,7 @@ from yaml import dump
 
 def clr():
     """Clear the terminal."""
-    os.system("cls" if os.name == "nt" else "clear")  # Clear function that works across platforms.
+    print("\033[2J\033[H", end="", flush=True)
 
 
 def main():
