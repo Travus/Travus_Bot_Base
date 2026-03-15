@@ -508,7 +508,7 @@ class CoreFunctionalityCog(commands.Cog):
         else:
             await ctx.send(f"No `{clean(ctx, command_name)}` command found.")
 
-    @commands.command(name="about", alias=["info"], usage="(MODULE NAME)")
+    @commands.command(name="about", aliases=["info"], usage="(MODULE NAME)")
     async def about(self, ctx: commands.Context, *, module_name: str | None = None):
         """This command gives information about modules, such as a description, authors, and other credits. Module
         authors can even add a small image to be displayed alongside this info. If no module name is given or the

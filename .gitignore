@@ -1,6 +1,8 @@
 venv/
 .idea/
 __pycache__/
-typings
-.ruff_cache
+typings/
+.ruff_cache/
+build/
+*.egg-info/
 config.yml
