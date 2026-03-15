@@ -33,6 +33,10 @@ async def main(logger: logging.Logger):
         if not all(element in config and config[element] is not None for element in config_options):
             logger.critical("Config was found, but lacked required options. Please run one_time_setup.py first.")
             exit(5)
+    for key in config_options:
+        env_value = os.environ.get(key.upper())
+        if env_value is not None:
+            config[key] = env_value
 
     # Validate Discord token.
     headers = {"Authorization": f"Bot {config['discord_token']}"}
