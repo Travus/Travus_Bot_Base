@@ -84,23 +84,13 @@ def required_config(requirements: Iterable[str]):
 class DatabaseCredentials:
     """Class that holds database credentials."""
 
-    def __init__(self, user: str, password: str, host: str, port: str, database: str):
-        """Initialization function for HelpInfo class."""
-        self._user = user
-        self._password = password
-        self._host = host
-        self._port = port
-        self._database = database
-
-    def get_credentials(self) -> dict[str, str]:
-        """Returns a dictionary mapping from user, password, host, port and database to the respective values."""
-        return {
-            "user": self._user,
-            "password": self._password,
-            "host": self._host,
-            "port": self._port,
-            "database": self._database,
-        }
+    def __init__(self, user: str, password: str, host: str, port: str | int, database: str):
+        """Initialization function for DatabaseCredentials class."""
+        self.user = user
+        self.password = password
+        self.host = host
+        self.port = int(port)
+        self.database = database
 
 
 class GlobalChannel(commands.Converter):
@@ -523,7 +513,13 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
     async def start(self, token: str, *, reconnect: bool = True):
         """Connect to the database and load default data, commands, and modules, then start the bot."""
         try:
-            async with asyncpg.create_pool(**self._db_creds.get_credentials()) as pool:
+            async with asyncpg.create_pool(
+                user=self._db_creds.user,
+                password=self._db_creds.password,
+                host=self._db_creds.host,
+                port=self._db_creds.port,
+                database=self._db_creds.database,
+            ) as pool:
                 self.db = pool
                 await self._load_db_options()
                 await self._load_default_commands()
