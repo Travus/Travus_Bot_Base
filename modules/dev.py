@@ -30,7 +30,7 @@ async def setup(bot: tbb.TravusBotBase):
     bot.add_command_help(DevCog.eval, "Dev", None, ["return 4 + 7", "return channel.id"])
     bot.add_command_help(DevCog.sudo, "Dev", None, ["travus bot_room help", "118954681241174016 about dev"])
     bot.add_command_help(DevCog.roleids, "Dev", {"perms": ["Manage Roles"]}, ["all bot_room", "all dm", "muted"])
-    bot.add_command_help(DevCog.lasterror, "Dev", {"perms": ["Manage Server"]}, [""])
+    bot.add_command_help(DevCog.lasterror, "Dev", {"perms": ["Administrator"]}, [""])
     bot.add_command_help(DevCog.ping, "Dev", None, [""])
     bot.add_command_help(
         DevCog.channelids, "Dev", {"perms": ["Manage Channels"]}, ["all bot_room", "all dm", "general"]
