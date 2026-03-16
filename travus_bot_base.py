@@ -1,8 +1,10 @@
 import copy
+import io
 import logging
 import os
 from re import compile as re_cmp  # Regex functions used in clean function for detecting mentions.
 from re import findall
+from collections.abc import Coroutine
 from typing import Any, Callable, Iterable, Optional, Type, TypeVar
 
 import asyncpg
@@ -392,6 +394,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
         self._db_creds = database_credentials
         self.prefix: Optional[str] = None
         self.delete_messages: int = 1
+        self.send_long_text: Callable[[Context, str], Coroutine[Any, Any, None]] = send_long_text
 
     async def get_context(
         self, origin: Message | Interaction, /, *, cls: Optional[Type[_ContextT]] = None
@@ -784,6 +787,15 @@ async def send_in_global_channel(ctx: Context, channel: Optional[GlobalTextChann
             await ctx.send("You do not have permission to send messages in this channel.")
     except Forbidden:
         await ctx.send("Cannot send messages in given channel.")
+
+
+async def send_long_text(ctx: Context, text: str) -> None:
+    """Send text as a code block if short enough, otherwise upload as a .txt file."""
+    if len(text) <= 1950:
+        await ctx.send(f"```py\n{text}\n```")
+    else:
+        file = discord.File(io.BytesIO(text.encode()), filename="output.txt")
+        await ctx.send("Output too long, uploaded as file.", file=file)
 
 
 async def can_run(command: Command, ctx: Context) -> bool:
