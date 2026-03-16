@@ -1,12 +1,10 @@
 from contextlib import redirect_stdout  # To return eval output.
 from copy import copy  # For copying context.
 from io import StringIO  # To return eval output.
-from textwrap import indent, wrap  # To format eval output.
+from textwrap import indent  # To format eval output.
 from traceback import format_exc  # To return eval output.
 from typing import Optional  # For type-hinting.
 
-import aiohttp  # To send info to mystbin.
-from aiohttp import ClientSession
 from discord import DMChannel, Member, Role  # For type-hinting and exceptions.
 from discord.ext import commands  # For implementation of bot commands.
 
@@ -24,8 +22,7 @@ async def setup(bot: tbb.TravusBotBase):
         """This module includes developer functionality that supply information useful for programming, such as IDs,
         as well as some debug and testing options such as code execution and remote command execution. Also allows
         checking the most recent error.""",
-        "[Rapptz](https://github.com/Rapptz):\n\tEval example\n\n[nerdstep710](https://github.com/nerdstep710):"
-        "\n\tMystbin example",
+        "[Rapptz](https://github.com/Rapptz):\n\tEval example",
     )
     bot.add_command_help(DevCog.eval, "Dev", None, ["return 4 + 7", "return channel.id"])
     bot.add_command_help(DevCog.sudo, "Dev", None, ["travus bot_room help", "118954681241174016 about dev"])
@@ -44,26 +41,6 @@ async def teardown(bot: tbb.TravusBotBase):
     bot.remove_command_help(DevCog)
 
 
-async def mystbin_send(text: str, line_length: int | None = None) -> Optional[str]:
-    """Send the text if it's short enough, otherwise links to a Mystbin of the text."""
-    if text is not None:
-        if line_length:
-            lines = text.split("\n")
-            for line in lines:
-                if len(line) > line_length:
-                    wrapped = wrap(line, width=line_length)
-                    line = ""
-                    for w_line in wrapped[:-1]:
-                        line += f"{w_line} ↩\n"  # pylint: disable=consider-using-join
-                    line += wrapped[-1]
-            text = "\n".join(lines)
-        async with ClientSession() as session:
-            key = (await (await session.post("https://mystb.in/documents", data=text.encode())).json())["key"]
-            return f"https://mystb.in/{key}"
-    else:
-        return None
-
-
 class DevCog(commands.Cog):
     """Cog that holds dev functionality."""
 
@@ -71,26 +48,6 @@ class DevCog(commands.Cog):
         """Initialization function loading bot object for cog."""
         self.bot = bot
         self._last_result = None
-
-    @staticmethod
-    async def _mystbin_send(ctx: commands.Context, text: str | None = None):
-        """Send the text if it's short enough, otherwise links to a Mystbin of the text."""
-        if text is not None:
-            if len(text) > 1950:
-                lines = text.split("\n")
-                for line in lines:
-                    if len(lines) > 198:
-                        wrapped = wrap(line, width=198)
-                        line = ""
-                        for w_line in wrapped[:-1]:
-                            line += f"{w_line} ↩\n"  # pylint: disable=consider-using-join
-                        line += wrapped[-1]
-                text = "\n".join(lines)
-                async with aiohttp.ClientSession() as session:
-                    key = (await (await session.post("https://mystb.in/documents", data=text.encode())).json())["key"]
-                    await ctx.send(f"https://mystb.in/{key}")
-            else:
-                await ctx.send(f"```py\n{text}\n```")
 
     @staticmethod
     def usage() -> str:
@@ -131,8 +88,7 @@ class DevCog(commands.Cog):
     async def eval(self, ctx: commands.Context, *, body: str):
         """This command evaluates code sent via Discord, and sends back any return value and output in a discord python
         code block. This can be single-line or multi-line via a code block. If the output is too long to fit in a
-        discord message a mystbin link with the response will be sent. Mystbin output will be line-wrapped to make it
-        more readable."""
+        discord message the response will be uploaded as a text file, online paste, or similar."""
         stdout = StringIO()
         env = {
             "bot": self.bot,
@@ -148,7 +104,7 @@ class DevCog(commands.Cog):
             exec(f"async def function():\n{indent(self.cleanup_code(body), '  ')}", env)  # pylint: disable=exec-used
         except Exception as e:
             response = f"{e.__class__.__name__}: {e}"
-            return await self._mystbin_send(ctx, response)
+            return await self.bot.send_long_text(ctx, response)
         function = env["function"]
         try:
             with redirect_stdout(stdout):
@@ -163,7 +119,8 @@ class DevCog(commands.Cog):
             else:
                 self._last_result = ret
                 response = f"{value}{ret}"
-        await self._mystbin_send(ctx, response or None)
+        if response:
+            await self.bot.send_long_text(ctx, response)
 
     @commands.is_owner()
     @commands.guild_only()
