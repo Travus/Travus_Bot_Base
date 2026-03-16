@@ -2,9 +2,9 @@ import copy
 import io
 import logging
 import os
+from collections.abc import Coroutine
 from re import compile as re_cmp  # Regex functions used in clean function for detecting mentions.
 from re import findall
-from collections.abc import Coroutine
 from typing import Any, Callable, Iterable, Optional, Type, TypeVar
 
 import asyncpg
