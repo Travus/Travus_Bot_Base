@@ -5,7 +5,8 @@ from textwrap import indent  # To format eval output.
 from traceback import format_exc  # To return eval output.
 from typing import Optional  # For type-hinting.
 
-from discord import DMChannel, Member, Role  # For type-hinting and exceptions.
+import discord
+from discord import DMChannel, Interaction, Member, Role, app_commands
 from discord.ext import commands  # For implementation of bot commands.
 
 import travus_bot_base as tbb  # TBB functions and classes.
@@ -13,7 +14,10 @@ import travus_bot_base as tbb  # TBB functions and classes.
 
 async def setup(bot: tbb.TravusBotBase):
     """Setup function ran when module is loaded."""
-    await bot.add_cog(DevCog(bot))  # Add cog and command help info.
+    cog = DevCog(bot)
+    await bot.add_cog(cog)  # Add cog and command help info.
+    bot._core_slash_commands.extend([cog.slash_ping, cog.slash_lasterror, cog.slash_roleids, cog.slash_channelids])
+    bot._core_prefix_commands.extend([cog.ping, cog.lasterror, cog.roleids, cog.channelids])
     bot.add_module(
         "Dev",
         "[Travus](https://github.com/Travus):\n\tEval command\n\tRoleID command\n\tChannelID command\n\tLast error "
@@ -29,6 +33,11 @@ async def setup(bot: tbb.TravusBotBase):
     bot.add_command_help(DevCog.roleids, "Dev", {"perms": ["Manage Roles"]}, ["all bot_room", "all dm", "muted"])
     bot.add_command_help(DevCog.lasterror, "Dev", {"perms": ["Administrator"]}, [""])
     bot.add_command_help(DevCog.ping, "Dev", None, [""])
+    bot.add_command_help(DevCog.sync, "Dev", None, ["", "guild"])
+    bot.add_command_help(DevCog.slash_ping, "Dev", None, [""])
+    bot.add_command_help(DevCog.slash_lasterror, "Dev", None, [""])
+    bot.add_command_help(DevCog.slash_roleids, "Dev", None, ["", "@Moderator"])
+    bot.add_command_help(DevCog.slash_channelids, "Dev", None, ["", "#general"])
     bot.add_command_help(
         DevCog.channelids, "Dev", {"perms": ["Manage Channels"]}, ["all bot_room", "all dm", "general"]
     )
@@ -36,7 +45,10 @@ async def setup(bot: tbb.TravusBotBase):
 
 async def teardown(bot: tbb.TravusBotBase):
     """Teardown function ran when module is unloaded."""
-    await bot.remove_cog("DevCog")  # Remove cog and command help info.
+    dev_command_names = ["ping", "lasterror", "roleids", "channelids"]
+    bot._core_slash_commands = [com for com in bot._core_slash_commands if com.name not in dev_command_names]
+    bot._core_prefix_commands = [com for com in bot._core_prefix_commands if com.name not in dev_command_names]
+    await bot.remove_cog("DevCog")
     bot.remove_module("Dev")
     bot.remove_command_help(DevCog)
 
@@ -209,3 +221,75 @@ class DevCog(commands.Cog):
         """This command shows the latency from the bot to Discord's servers. Can be used to check if the bot is
         responsive."""
         await ctx.send(f"Pong! ({round(self.bot.latency * 1000, 2)}ms)")
+
+    @commands.is_owner()
+    @commands.command(name="sync", usage="(guild)")
+    async def sync(self, ctx: commands.Context, scope: Optional[str] = None):
+        """This command manually syncs the slash command tree with Discord. Use `guild` to sync only to the current
+        server. Without arguments it syncs globally. This is a recovery tool for when automatic sync fails."""
+        if scope and scope.lower() == "guild":
+            if ctx.guild is None:
+                await ctx.send("Cannot sync to guild from DMs.")
+                return
+            await ctx.send("Syncing command tree to guild, this may take a moment...")
+            await self.bot.tree.sync(guild=ctx.guild)
+            await ctx.send(f"Command tree synced to guild `{ctx.guild.name}`.")
+        else:
+            await ctx.send("Syncing command tree globally, this may take a moment...")
+            await self.bot.tree.sync()
+            await ctx.send("Command tree synced globally.")
+
+    @app_commands.command(name="ping", description="Shows the bot's latency to Discord.")
+    async def slash_ping(self, interaction: Interaction):
+        """This command shows the latency from the bot to Discord's servers. Can be used to check if the bot is
+        responsive."""
+        await self.bot.send_response(interaction, f"Pong! ({round(self.bot.latency * 1000, 2)}ms)")
+
+    @app_commands.command(name="lasterror", description="Shows the last error the bot encountered.")
+    @app_commands.guild_only()
+    @app_commands.default_permissions(administrator=True)
+    async def slash_lasterror(self, interaction: Interaction):
+        """This command shows the last error the bot has encountered. Errors encountered while loading modules will
+        not be listed by this command. To see the last error encountered while loading modules see the `/module
+        lasterror` command. This command retains this information until another error replaces it, or the bot shuts
+        down."""
+        if self.bot.last_error:
+            error = tbb.clean_no_ctx(self.bot, interaction.guild, self.bot.last_error)
+            await self.bot.send_response(interaction, error)
+        else:
+            await self.bot.send_response(interaction, "There have not been any errors since the last restart.")
+
+    @app_commands.command(name="roleids", description="Shows role IDs for one or all roles in the server.")
+    @app_commands.guild_only()
+    @app_commands.default_permissions(manage_roles=True)
+    @app_commands.describe(role="Role to get the ID for, or omit for all roles.")
+    async def slash_roleids(self, interaction: Interaction, role: Optional[Role] = None):
+        """This command gives you role IDs of one or all roles in the server. If a role is provided, shows only that
+        role's ID. If omitted, shows all role IDs."""
+        assert interaction.guild is not None
+        if role is None:
+            paginator = commands.Paginator()
+            for _role in reversed(interaction.guild.roles):
+                paginator.add_line(f"{_role.name}: {_role.id}")
+            for page in paginator.pages:
+                await self.bot.send_response(interaction, page)
+        else:
+            await self.bot.send_response(interaction, f"```{role.name}: {role.id}```")
+
+    @app_commands.command(name="channelids", description="Shows channel IDs for one or all channels in the server.")
+    @app_commands.guild_only()
+    @app_commands.default_permissions(manage_guild=True)
+    @app_commands.describe(channel="Channel to get the ID for, or omit for all channels.")
+    async def slash_channelids(self, interaction: Interaction, channel: Optional[discord.abc.GuildChannel] = None):
+        """This command gives you channel IDs of one or all channels in the server. If a channel is provided, shows
+        only that channel's ID. If omitted, shows all channel IDs."""
+        assert interaction.guild is not None
+        if channel is None:
+            paginator = commands.Paginator()
+            for _channel in interaction.guild.channels:
+                paginator.add_line(f"{_channel.name}: {_channel.id}")
+            for page in paginator.pages:
+                await self.bot.send_response(interaction, page)
+        else:
+            name = getattr(channel, "name", str(channel.id))
+            await self.bot.send_response(interaction, f"```{name}: {channel.id}```")
