@@ -4,7 +4,7 @@ from os import listdir  # To check files on disk.
 from typing import Optional
 
 from asyncpg import IntegrityConstraintViolationError  # To check for database conflicts.
-from discord import Activity, ActivityType, Embed  # For bot status
+from discord import Embed
 from discord.ext import commands  # For implementation of bot commands.
 
 import travus_bot_base as tbb  # TBB functions and classes.
@@ -14,12 +14,11 @@ from travus_bot_base import clean  # Shorthand for cleaning output.
 async def setup(bot: tbb.TravusBotBase):
     """Setup function ran when module is loaded."""
     await bot.add_cog(CoreFunctionalityCog(bot))  # Add cog and command help info.
-    bot.add_command_help(CoreFunctionalityCog.botconfig_prefix, "Core", None, ["$", "bot!", "bot ?", "remove"])
-    bot.add_command_help(CoreFunctionalityCog.botconfig_deletemessages, "Core", None, ["enable", "y", "disable", "n"])
     bot.add_command_help(CoreFunctionalityCog.module_list, "Core", {"perms": ["Administrator"]}, [""])
     bot.add_command_help(CoreFunctionalityCog.module_load, "Core", {"perms": ["Administrator"]}, ["fun", "economy"])
     bot.add_command_help(CoreFunctionalityCog.module_unload, "Core", {"perms": ["Administrator"]}, ["fun", "economy"])
     bot.add_command_help(CoreFunctionalityCog.module_reload, "Core", {"perms": ["Administrator"]}, ["fun", "economy"])
+    bot.add_command_help(CoreFunctionalityCog.module_lasterror, "Core", {"perms": ["Administrator"]}, [""])
     bot.add_command_help(CoreFunctionalityCog.default, "Core", None, ["list", "add", "remove"])
     bot.add_command_help(CoreFunctionalityCog.default_list, "Core", None, [""])
     bot.add_command_help(CoreFunctionalityCog.default_add, "Core", None, ["fun", "economy"])
@@ -34,8 +33,15 @@ async def setup(bot: tbb.TravusBotBase):
     bot.add_command_help(CoreFunctionalityCog.config_get, "Core", {"perms": ["Administrator"]}, ["alert_channel"])
     bot.add_command_help(CoreFunctionalityCog.config_unset, "Core", {"perms": ["Administrator"]}, ["alert_channel"])
     bot.add_command_help(CoreFunctionalityCog.shutdown, "Core", None, ["", "1h", "1h30m", "10m-30s", "2m30s"])
+    bot.add_command_help(CoreFunctionalityCog.botconfig_prefix, "Core", None, ["$", "bot!", "bot ?", "remove"])
+    bot.add_command_help(CoreFunctionalityCog.botconfig_deletemessages, "Core", None, ["enable", "y", "disable", "n"])
+    bot.add_command_help(CoreFunctionalityCog.botconfig_ephemeral, "Core", None, ["enable", "y", "disable", "n"])
+    bot.add_command_help(CoreFunctionalityCog.botconfig_core_commands, "Core", None, ["slash", "prefix", "both"])
     bot.add_command_help(
-        CoreFunctionalityCog.botconfig, "Core", None, ["prefix", "deletemessages", "description", "credits"]
+        CoreFunctionalityCog.botconfig,
+        "Core",
+        None,
+        ["prefix", "deletemessages", "description", "credits", "ephemeral", "core-commands"],
     )
     bot.add_command_help(
         CoreFunctionalityCog.botconfig_description, "Core", None, ["remove", "This is a sample description."]
@@ -72,7 +78,9 @@ class CoreFunctionalityCog(commands.Cog):
         self.log = logging.getLogger("core_commands")
         self.log.setLevel(logging.INFO)
 
-    async def _module_operation(self, ctx: commands.Context, operation: str, mod: str):
+    async def _module_operation(  # pylint: disable=too-many-statements
+        self, ctx: commands.Context, operation: str, mod: str
+    ):
         """To avoid code duplication in the except blocks all module command functionality is grouped together."""
 
         async def load():
@@ -106,6 +114,7 @@ class CoreFunctionalityCog(commands.Cog):
 
         old_help = dict(self.bot.help)  # Save old help and module info in case we need to roll back.
         old_modules = dict(self.bot.modules)
+        old_tree_commands = self.bot.tree.get_commands()  # Save tree state for sync rollback.
         self.bot.extension_ctx = ctx  # Save context in case loaded module has use for it.
         mod_name = clean(ctx, mod, False, True)
         try:
@@ -147,15 +156,39 @@ class CoreFunctionalityCog(commands.Cog):
             self.bot.last_module_error = (
                 f"The `{clean(ctx, mod, False)}` module failed while loading. The error was:\n\n{clean(ctx, str(e))}"
             )
+        else:
+            try:
+                await self.bot.apply_core_commands_mode(sync=False)
+                if {id(com) for com in self.bot.tree.get_commands()} != {id(com) for com in old_tree_commands}:
+                    await ctx.send("Syncing slash command tree, this may take a moment...")
+                    await self.bot.tree.sync()
+                    await ctx.send("Slash command tree synced.")
+            except Exception as sync_error:  # Sync failed — rollback local state.
+                self.bot.help = old_help
+                self.bot.modules = old_modules
+                self.bot.tree.clear_commands(guild=None)
+                for cmd in old_tree_commands:
+                    self.bot.tree.add_command(cmd)
+                error_msg = f"Tree sync failed after {operation} of '{mod}': {sync_error}"
+                self.log.error(error_msg)
+                self.bot.last_module_error = error_msg
+                await ctx.send(
+                    "Module operation succeeded but slash command sync failed. Changes have been rolled back.\n"
+                    "Error stored in module lasterror command."
+                )
         finally:  # Reset context as loading has concluded.
             self.bot.extension_ctx = None
 
     @commands.is_owner()
-    @commands.group(invoke_without_command=True, name="botconfig", usage="<prefix/deletemessages/description/credits>")
+    @commands.group(
+        invoke_without_command=True,
+        name="botconfig",
+        usage="<prefix/deletemessages/description/credits/ephemeral/core-commands>",
+    )
     async def botconfig(self, ctx: commands.Context):
-        """This command sets the bot's prefix, command trigger deletion behaviour, description and additional credits
-        section. For more information, check the help entry of one of these subcommands; `prefix`, `deletemessages`,
-        `description`, `credits`."""
+        """This command sets the bot's prefix, command trigger deletion behaviour, description, additional credits
+        section, ephemeral response behaviour, and core command mode. For more information, check the help entry of one
+        of these subcommands; `prefix`, `deletemessages`, `description`, `credits`, `ephemeral`, `core-commands`."""
         assert ctx.command is not None
         raise commands.BadArgument(f"No subcommand given for {ctx.command.name}.")
 
@@ -171,11 +204,7 @@ class CoreFunctionalityCog(commands.Cog):
             await ctx.send("The maximum prefix length is 20.")
             return
         self.bot.prefix = new_prefix if new_prefix.lower() != "remove" else None  # If 'remove', prefix is set to None.
-        activity = Activity(
-            type=ActivityType.listening,
-            name=f"prefix: {new_prefix}" if new_prefix.lower() != "remove" else "pings only",
-        )
-        await self.bot.change_presence(activity=activity)  # Set status.
+        await self.bot.update_status()
         async with self.bot.db.acquire() as conn:
             await conn.execute(
                 "UPDATE settings SET value = $1 WHERE key = 'prefix'",
@@ -214,6 +243,54 @@ class CoreFunctionalityCog(commands.Cog):
                 await ctx.send("No longer deleting command triggers.")
             else:
                 raise commands.BadArgument("Operation not supported.")
+
+    @commands.is_owner()
+    @botconfig.command(
+        name="ephemeral",
+        usage="<enable/disable>",
+    )
+    async def botconfig_ephemeral(self, ctx: commands.Context, operation: str):
+        """This command sets whether core slash command responses are ephemeral (only visible to the user who ran the
+        command). If enabled, slash command responses will be ephemeral by default. If disabled, responses will be
+        visible to everyone. Per default this is enabled. This setting is saved across restarts. Module authors can
+        choose to respect this setting for their own slash commands."""
+        async with self.bot.db.acquire() as conn:
+            if operation.lower() in ["enable", "true", "on", "yes", "y", "+", "1"]:
+                if self.bot.ephemeral:
+                    await ctx.send("Ephemeral responses are already enabled.")
+                    return
+                await conn.execute("UPDATE settings SET value = '1' WHERE key = 'ephemeral'")
+                self.bot.ephemeral = True
+                await ctx.send("Slash command responses are now ephemeral.")
+            elif operation.lower() in ["disable", "false", "off", "no", "n", "-", "0"]:
+                if not self.bot.ephemeral:
+                    await ctx.send("Ephemeral responses are already disabled.")
+                    return
+                await conn.execute("UPDATE settings SET value = '0' WHERE key = 'ephemeral'")
+                self.bot.ephemeral = False
+                await ctx.send("Slash command responses are now visible to everyone.")
+            else:
+                raise commands.BadArgument("Operation not supported.")
+
+    @commands.is_owner()
+    @botconfig.command(name="core-commands", aliases=["corecommands", "corecmds"], usage="<slash/prefix/both>")
+    async def botconfig_core_commands(self, ctx: commands.Context, mode: str):
+        """This command sets whether core commands are registered as slash commands, prefix commands, or both. The
+        default is `slash`. The `help` command always exists as both slash and prefix regardless of this setting.
+        The `botconfig` command is always prefix-only. This setting is saved across restarts."""
+        mode = mode.lower()
+        if mode not in ("slash", "prefix", "both"):
+            raise commands.BadArgument("Mode must be `slash`, `prefix`, or `both`.")
+        if mode == self.bot.core_commands_mode:
+            await ctx.send(f"Core commands mode is already set to `{mode}`.")
+            return
+        self.bot.core_commands_mode = mode
+        async with self.bot.db.acquire() as conn:
+            await conn.execute("UPDATE settings SET value = $1 WHERE key = 'core_commands_mode'", mode)
+        await ctx.send(f"Core commands mode set to `{mode}`.\nSyncing slash command tree, this may take a moment...")
+        await self.bot.apply_core_commands_mode()
+        await self.bot.update_status()
+        await ctx.send("Slash command tree synced.")
 
     @commands.is_owner()
     @botconfig.command(name="description", aliases=["desc"], usage="<DESCRIPTION/remove>")
@@ -265,7 +342,7 @@ class CoreFunctionalityCog(commands.Cog):
 
     @commands.has_permissions(administrator=True)
     @commands.group(
-        invoke_without_command=True, name="module", aliases=["modules"], usage="<list/load/unload/reload/error>"
+        invoke_without_command=True, name="module", aliases=["modules"], usage="<list/load/unload/reload/lasterror>"
     )
     async def module(self, ctx: commands.Context):
         """This command can load, unload, reload and list available modules. It can also show any errors that occur
@@ -336,8 +413,8 @@ class CoreFunctionalityCog(commands.Cog):
         await self._module_operation(ctx, "reload", mod)
 
     @commands.has_permissions(administrator=True)
-    @module.command(name="error")
-    async def module_error(self, ctx: commands.Context):
+    @module.command(name="lasterror", aliases=["error", "le"])
+    async def module_lasterror(self, ctx: commands.Context):
         """This command will show the last error that was encountered during the module load or reloading process. This
         information will also be logged to the console when the error first is encountered. This command retains this
         information until another error replaces it, or the bot shuts down."""
