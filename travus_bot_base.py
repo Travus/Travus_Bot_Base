@@ -26,6 +26,7 @@ from discord import (
     Thread,
     User,
     VoiceChannel,
+    app_commands,
     utils,
 )
 from discord.ext import commands
@@ -177,7 +178,7 @@ class TBBContext(commands.Context):
     bot: "TravusBotBase"
 
 
-class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
+class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instance-attributes
     """Custom bot class with database connection."""
 
     db: asyncpg.Pool
@@ -188,7 +189,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
         def __init__(
             self,
             get_prefix: Callable,
-            command: Command,
+            command: Command | Group | app_commands.Command | app_commands.Group,
             category: str = "no category",
             restrictions: Optional[dict[str, list[str] | str]] = None,
             examples: Optional[list[str]] = None,
@@ -197,22 +198,30 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
             res = restrictions  # Shortening often used variable name.
             self.get_prefix = get_prefix
             self.name = command.qualified_name
-            self.description = command.help.replace("\n", " ") if command.help else "No description found."
-            self.aliases = list(command.aliases) or []
-            self.aliases.append(command.name)
+            self.is_slash = isinstance(command, (app_commands.Command, app_commands.Group))
             self.category = category
             self.examples = examples or []
             self.permissions = res["perms"] if isinstance(res, dict) and "perms" in res.keys() else []
             self.roles = res["roles"] if isinstance(res, dict) and "roles" in res.keys() else []
             self.other_restrictions = res["other"] if isinstance(res, dict) and "other" in res.keys() else ""
             self.owner_only, self.guild_only, self.dm_only = False, False, False
-            for check in command.checks:
-                if "is_owner" in str(check):
-                    self.owner_only = True
-                if "guild_only" in str(check):
-                    self.guild_only = True
-                if "dm_only" in str(check):
-                    self.dm_only = True
+
+            if isinstance(command, (app_commands.Command, app_commands.Group)):
+                doc = command.callback.__doc__ if isinstance(command, app_commands.Command) else None
+                self.description = doc.replace("\n", " ") if doc else command.description or "No description found."
+                self.aliases = [command.name]
+                self.guild_only = command.guild_only
+            else:
+                self.description = command.help.replace("\n", " ") if command.help else "No description found."
+                self.aliases = list(command.aliases) or []
+                self.aliases.append(command.name)
+                for check in command.checks:
+                    if "is_owner" in str(check):
+                        self.owner_only = True
+                    if "guild_only" in str(check):
+                        self.guild_only = True
+                    if "dm_only" in str(check):
+                        self.dm_only = True
 
         def make_help_embed(self, ctx: Context) -> Embed:
             """Creates embeds for command based on info stored in class."""
@@ -233,9 +242,10 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
             )
             restrictions += f"\n{self.other_restrictions}" if self.other_restrictions else ""
             embed.add_field(name="Restrictions", value=f"```{restrictions[:1017]}```", inline=True)
+            prefix = "/" if self.is_slash else self.get_prefix()
             examples = "\n".join(
                 [
-                    f"`{self.get_prefix()}{self.name} {example}`" if example else f"`{self.get_prefix()}{self.name}`"
+                    f"`{prefix}{self.name} {example}`" if example else f"`{prefix}{self.name}`"
                     for example in self.examples
                 ]
             )
@@ -394,6 +404,10 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
         self._db_creds = database_credentials
         self.prefix: Optional[str] = None
         self.delete_messages: int = 1
+        self.ephemeral: bool = True
+        self.core_commands_mode: str = "slash"
+        self._core_slash_commands: list[app_commands.Command | app_commands.Group] = []
+        self._core_prefix_commands: list[Command | commands.Group] = []
         self.send_long_text: Callable[[Context, str], Coroutine[Any, Any, None]] = send_long_text
 
     async def get_context(
@@ -421,12 +435,20 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
                 await conn.execute("INSERT INTO settings VALUES ('bot_description', '') ON CONFLICT (key) DO NOTHING")
                 await conn.execute("INSERT INTO settings VALUES ('delete_messages', '0') ON CONFLICT (key) DO NOTHING")
                 await conn.execute("INSERT INTO settings VALUES ('prefix', '!') ON CONFLICT (key) DO NOTHING")
+                await conn.execute("INSERT INTO settings VALUES ('ephemeral', '1') ON CONFLICT (key) DO NOTHING")
+                await conn.execute(
+                    "INSERT INTO settings VALUES ('core_commands_mode', 'slash') ON CONFLICT (key) DO NOTHING"
+                )
             loaded_prefix = await self.db.fetchval("SELECT value FROM settings WHERE key = 'prefix'")
             delete_msgs = await conn.fetchval("SELECT value FROM settings WHERE key = 'delete_messages'")
+            ephemeral = await conn.fetchval("SELECT value FROM settings WHERE key = 'ephemeral'")
+            core_mode = await conn.fetchval("SELECT value FROM settings WHERE key = 'core_commands_mode'")
             config = await conn.fetch("SELECT key, value FROM config")
 
         self.prefix = loaded_prefix or None
         self.delete_messages = int(delete_msgs) if delete_msgs is not None else 1
+        self.ephemeral = bool(int(ephemeral)) if ephemeral is not None else True
+        self.core_commands_mode = core_mode if core_mode in ("slash", "prefix", "both") else "slash"
         self.add_command_help(
             next(com for com in self.commands if com.name == "help"), "Core", None, ["", "about", "help"]
         )  # Add help info for help command.
@@ -512,9 +534,12 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
         for mod in list(default_modules):
             await load_module(default_modules, mod)
         await self.update_command_states()  # Make sure commands are in the right state. (hidden, disabled)
+        await self.apply_core_commands_mode(sync=False)  # Enforce mode before syncing.
+        await self.tree.sync()  # Sync tree after loading default modules (picks up module slash commands).
 
     async def setup_hook(self):
         """Called after the bot is logged in but before connecting to the gateway. Loads DB options and commands."""
+        self.tree.on_error = self._on_app_command_error
         await self._load_db_options()
         await self._load_default_commands()
         self.loop.create_task(self._load_default_modules())  # Runs after bot is ready (waits internally).
@@ -552,6 +577,33 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
             return self.prefix
         assert self.user is not None
         return f"{self.user.mention} "
+
+    async def send_response(self, interaction: Interaction, content: str = "", **kwargs) -> None:
+        """Send a response to an interaction, respecting the ephemeral setting. Uses followup if already responded."""
+        if "ephemeral" not in kwargs:
+            kwargs["ephemeral"] = self.ephemeral
+        if interaction.response.is_done():
+            await interaction.followup.send(content, **kwargs)
+        else:
+            await interaction.response.send_message(content, **kwargs)
+
+    async def apply_core_commands_mode(self, sync: bool = True):
+        """Register/unregister core slash and prefix commands based on core_commands_mode setting."""
+        # Slash commands: add or remove from tree
+        for cmd in self._core_slash_commands:
+            if self.core_commands_mode in ("slash", "both"):
+                if self.tree.get_command(cmd.name) is None:
+                    self.tree.add_command(cmd)
+            else:
+                if self.tree.get_command(cmd.name) is not None:
+                    self.tree.remove_command(cmd.name)
+        # Prefix commands: enable or disable (help is excluded — always both)
+        for cmd in self._core_prefix_commands:
+            if cmd.name == "help":
+                continue
+            cmd.enabled = self.core_commands_mode in ("prefix", "both")
+        if sync:
+            await self.tree.sync()
 
     def check_dependencies(self, dependencies: list[str]):
         """Checks if all dependencies are met. Raises DependencyError with the missing dependencies if not."""
@@ -619,14 +671,13 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
 
     def add_command_help(
         self,
-        command,
+        command: Command | Group | app_commands.Command | app_commands.Group,
         category: str = "no category",
         restrictions: dict[str, list[str] | str] | None = None,
         examples: list[str] | None = None,
     ):
         """Function that is used to add help info to the bot correctly. Used to minimize developmental errors. Command
-        should be either a command or a command group."""
-        # The Command argument is currently not typed due to type checking issues in PyCharm, should be type 'Command'.
+        should be either a prefix command, prefix command group, app command, or app command group."""
         self.help[command.qualified_name] = self._HelpInfo(
             self.get_bot_prefix, command, category, restrictions, examples
         )
@@ -650,6 +701,23 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
             if command in self.help:
                 del self.help[command]
 
+    async def update_status(
+        self,
+        text: Optional[str] = None,
+        activity_type: discord.ActivityType = discord.ActivityType.listening,
+    ):
+        """Update bot presence/status. If no text is given, defaults to showing the current prefix/help info
+        based on core commands mode. If text is given, it is used as-is with the given activity type."""
+        if text is None:
+            if self.core_commands_mode == "slash":
+                text = "/help"
+            elif self.core_commands_mode == "both":
+                text = f"prefix: {self.prefix} | /help" if self.prefix else "/help"
+            else:
+                text = f"prefix: {self.prefix}" if self.prefix else "pings only"
+        activity = discord.Activity(type=activity_type, name=text)
+        await self.change_presence(activity=activity)
+
     async def on_ready(self):
         """This function runs every time the bot connects to Discord. This happens multiple times.
         Sets about command and bot status. These require the bot to be online and hence are in here."""
@@ -667,10 +735,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
             )
             bot_desc = bot_desc or "No description for the bot found. Set description with `botconfig` command."
             self.add_module(self.user.name, bot_author, None, bot_desc, bot_credits, self.user.display_avatar)
-        activity = discord.Activity(
-            type=discord.ActivityType.listening, name=f"prefix: {self.prefix}" if self.prefix else "pings only"
-        )
-        await self.change_presence(activity=activity)  # Display status message.
+        await self._update_status()
         self.is_connected = 1  # Flag that the bot is currently connected to Discord.
         self.log.info(f"{self.user.name} is ready!\n------------------------------")
 
@@ -688,6 +753,8 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
 
     async def on_command(self, ctx: Context):
         """Deletes command if command deletion is set."""
+        if ctx.interaction is not None:  # Don't delete interaction-triggered messages.
+            return
         if self.delete_messages and ctx.guild:  # If the message is in a server and the delete messages flag is true.
             try:  # Try to delete message.
                 await ctx.message.delete()
@@ -731,6 +798,26 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors
         elif error is not None:  # Log error to console.
             self.log.warning(f"{ctx.author.id}: {error}")
         self.last_error = f"[{cur_time()}] {ctx.author.id}: {error}"
+
+    async def _on_app_command_error(self, interaction: Interaction, error: app_commands.AppCommandError):
+        """Global error handler for app command errors. Assigned to tree.on_error in setup_hook."""
+        command_name = interaction.command.qualified_name if interaction.command else "unknown"
+        if isinstance(error, app_commands.CommandOnCooldown):
+            pass
+        elif isinstance(error, app_commands.NoPrivateMessage):
+            pass
+        elif isinstance(error, app_commands.MissingPermissions):
+            self.log.warning(
+                f"{interaction.user.id}: Command '/{command_name}' requires additional permissions: "
+                f"{', '.join(error.missing_permissions)}"
+            )
+        elif isinstance(error, app_commands.CheckFailure):
+            pass
+        elif isinstance(error.__cause__, Forbidden):
+            self.log.warning(f"{interaction.user.id}: Missing permissions.")
+        elif error is not None:
+            self.log.warning(f"{interaction.user.id}: /{command_name}: {error}")
+        self.last_error = f"[{cur_time()}] {interaction.user.id}: /{command_name}: {error}"
 
 
 def parse_time(
