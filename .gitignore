@@ -1,4 +1,5 @@
 venv/
+.venv/
 .idea/
 __pycache__/
 typings/
@@ -6,3 +7,4 @@ typings/
 build/
 *.egg-info/
 config.yml
+uv.lock

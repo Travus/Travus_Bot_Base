@@ -3,7 +3,6 @@ from copy import copy  # For copying context.
 from io import StringIO  # To return eval output.
 from textwrap import indent  # To format eval output.
 from traceback import format_exc  # To return eval output.
-from typing import Optional  # For type-hinting.
 
 import discord
 from discord import DMChannel, Interaction, Member, Role, app_commands
@@ -16,7 +15,10 @@ async def setup(bot: tbb.TravusBotBase):
     """Setup function ran when module is loaded."""
     cog = DevCog(bot)
     await bot.add_cog(cog)  # Add cog and command help info.
+    # Dev is a shipped TBB module with intentional access to the core command toggle lists.
+    # pylint: disable-next=protected-access
     bot._core_slash_commands.extend([cog.slash_ping, cog.slash_lasterror, cog.slash_roleids, cog.slash_channelids])
+    # pylint: disable-next=protected-access
     bot._core_prefix_commands.extend([cog.ping, cog.lasterror, cog.roleids, cog.channelids])
     bot.add_module(
         "Dev",
@@ -46,7 +48,10 @@ async def setup(bot: tbb.TravusBotBase):
 async def teardown(bot: tbb.TravusBotBase):
     """Teardown function ran when module is unloaded."""
     dev_command_names = ["ping", "lasterror", "roleids", "channelids"]
+    # Dev is a shipped TBB module with intentional access to the core command toggle lists.
+    # pylint: disable-next=protected-access
     bot._core_slash_commands = [com for com in bot._core_slash_commands if com.name not in dev_command_names]
+    # pylint: disable-next=protected-access
     bot._core_prefix_commands = [com for com in bot._core_prefix_commands if com.name not in dev_command_names]
     await bot.remove_cog("DevCog")
     bot.remove_module("Dev")
@@ -137,7 +142,7 @@ class DevCog(commands.Cog):
     @commands.is_owner()
     @commands.guild_only()
     @commands.command(name="sudo", usage="<USER> (CHANNEL) <COMMAND>")
-    async def sudo(self, ctx: commands.Context, user: Member, channel: Optional[tbb.GlobalTextChannel], *, cmd: str):
+    async def sudo(self, ctx: commands.Context, user: Member, channel: tbb.GlobalTextChannel | None, *, cmd: str):
         """This command lets you run commands as another user, optionally in other channels. If the channel argument is
         skipped and the bot fails to parse the argument as a channel it will ignore the channel argument and move on to
         parsing the command instead. In this case the command will be sent from the channel you are currently in."""
@@ -158,7 +163,7 @@ class DevCog(commands.Cog):
     @commands.guild_only()
     @commands.has_permissions(manage_roles=True)
     @commands.command(name="roleids", aliases=["roleid"], usage="<ROLE/all> (OUTPUT CHANNEL/dm)")
-    async def roleids(self, ctx: commands.Context, role: Role | str, resp_channel: Optional[tbb.GlobalTextChannel]):
+    async def roleids(self, ctx: commands.Context, role: Role | str, resp_channel: tbb.GlobalTextChannel | None):
         """This command gives you role IDs of one or all roles in the server depending on if a role or `all` is passed
         along. You can also pass along a channel, in this server or otherwise, in which case the response is sent in
         that channel. Sending `dm` instead of a channel will send you the result in direct messages."""
@@ -182,7 +187,7 @@ class DevCog(commands.Cog):
         self,
         ctx: commands.Context,
         channel: tbb.GlobalChannel | str,
-        resp_channel: Optional[tbb.GlobalTextChannel],
+        resp_channel: tbb.GlobalTextChannel | None,
     ):
         """This command gives you channel IDs of one or all channels in the server depending on if a channel or `all`
         is passed along. You can also pass along a second channel, in this server or otherwise, in which case the
@@ -224,7 +229,7 @@ class DevCog(commands.Cog):
 
     @commands.is_owner()
     @commands.command(name="sync", usage="(guild)")
-    async def sync(self, ctx: commands.Context, scope: Optional[str] = None):
+    async def sync(self, ctx: commands.Context, scope: str | None = None):
         """This command manually syncs the slash command tree with Discord. Use `guild` to sync only to the current
         server. Without arguments it syncs globally. This is a recovery tool for when automatic sync fails."""
         if scope and scope.lower() == "guild":
@@ -263,7 +268,7 @@ class DevCog(commands.Cog):
     @app_commands.guild_only()
     @app_commands.default_permissions(manage_roles=True)
     @app_commands.describe(role="Role to get the ID for, or omit for all roles.")
-    async def slash_roleids(self, interaction: Interaction, role: Optional[Role] = None):
+    async def slash_roleids(self, interaction: Interaction, role: Role | None = None):
         """This command gives you role IDs of one or all roles in the server. If a role is provided, shows only that
         role's ID. If omitted, shows all role IDs."""
         assert interaction.guild is not None
@@ -280,7 +285,7 @@ class DevCog(commands.Cog):
     @app_commands.guild_only()
     @app_commands.default_permissions(manage_guild=True)
     @app_commands.describe(channel="Channel to get the ID for, or omit for all channels.")
-    async def slash_channelids(self, interaction: Interaction, channel: Optional[discord.abc.GuildChannel] = None):
+    async def slash_channelids(self, interaction: Interaction, channel: discord.abc.GuildChannel | None = None):
         """This command gives you channel IDs of one or all channels in the server. If a channel is provided, shows
         only that channel's ID. If omitted, shows all channel IDs."""
         assert interaction.guild is not None

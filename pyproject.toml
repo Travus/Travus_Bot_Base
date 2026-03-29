@@ -30,12 +30,16 @@ line-length = 120
 
 [tool.ruff.lint]
 select = [
-    "E",   # pycodestyle
-    "F",   # pyflakes
-    "W",   # pycodestyle
-    "B",   # bugbear
-    "I",   # isort
-    "RUF", # ruff
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "W",    # pycodestyle
+    "B",    # bugbear
+    "I",    # isort
+    "RUF",  # ruff
+    "UP",   # pyupgrade
+    "SIM",  # flake8-simplify
+    "PERF", # perflint
+    "PIE",  # flake8-pie
 ]
 ignore = [
     "RUF001",  # string contains ambiguous unicode character

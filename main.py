@@ -28,7 +28,7 @@ async def main(logger: logging.Logger):
     if "config.yml" not in os.listdir("."):
         logger.critical("Please run one_time_setup.py first!")
         exit(5)
-    with open("config.yml", "r", encoding="utf8") as config_object:
+    with open("config.yml", encoding="utf8") as config_object:
         config = yaml.safe_load(config_object)
         if not all(element in config and config[element] is not None for element in config_options):
             logger.critical("Config was found, but lacked required options. Please run one_time_setup.py first.")
