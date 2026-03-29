@@ -38,8 +38,8 @@ async def setup(bot: tbb.TravusBotBase):
     bot.add_command_help(DevCog.sync, "Dev", None, ["", "guild"])
     bot.add_command_help(DevCog.slash_ping, "Dev", None, [""])
     bot.add_command_help(DevCog.slash_lasterror, "Dev", None, [""])
-    bot.add_command_help(DevCog.slash_roleids, "Dev", None, ["", "@Moderator"])
-    bot.add_command_help(DevCog.slash_channelids, "Dev", None, ["", "#general"])
+    bot.add_command_help(DevCog.slash_roleids, "Dev", None, ["", "@Moderator", "@Moderator #bot-room"])
+    bot.add_command_help(DevCog.slash_channelids, "Dev", None, ["", "#general", "#general #bot-room"])
     bot.add_command_help(
         DevCog.channelids, "Dev", {"perms": ["Manage Channels"]}, ["all bot_room", "all dm", "general"]
     )
@@ -194,21 +194,18 @@ class DevCog(commands.Cog):
         response is sent in that channel. Sending `dm` instead of a second channel will send you the result in direct
         messages."""
         assert ctx.guild is not None
-        response = ""
         paginator = commands.Paginator()
         if isinstance(channel, str) and channel.lower() == "all":
-            for _channel in ctx.guild.text_channels:
-                paginator.add_line(f"{_channel.name}: {_channel.id}")
-            for _channel in ctx.guild.voice_channels:
+            for _channel in ctx.guild.channels:
                 paginator.add_line(f"{_channel.name}: {_channel.id}")
             for page in paginator.pages:
                 await tbb.send_in_global_channel(ctx, resp_channel, page)
         elif isinstance(channel, str):
             raise commands.BadArgument("Channel could not be parsed and string is not 'all'.")
         else:
-            if hasattr(channel, "name") and hasattr(channel, "id"):
-                response = f"{channel.name}: {channel.id}"  # type: ignore[union-attr]
-        await tbb.send_in_global_channel(ctx, resp_channel, f"```{response}```")
+            name = getattr(channel, "name", str(channel.id))  # type: ignore[union-attr]
+            response = f"```{name}: {channel.id}```"  # type: ignore[union-attr]
+            await tbb.send_in_global_channel(ctx, resp_channel, response)
 
     @commands.has_permissions(administrator=True)
     @commands.command(name="lasterror", aliases=["lerror", "_error"])
@@ -267,34 +264,59 @@ class DevCog(commands.Cog):
     @app_commands.command(name="roleids", description="Shows role IDs for one or all roles in the server.")
     @app_commands.guild_only()
     @app_commands.default_permissions(manage_roles=True)
-    @app_commands.describe(role="Role to get the ID for, or omit for all roles.")
-    async def slash_roleids(self, interaction: Interaction, role: Role | None = None):
+    @app_commands.describe(
+        role="Role to get the ID for, or omit for all roles.",
+        output_channel="Channel to send the output to. If omitted, responds here.",
+    )
+    async def slash_roleids(
+        self, interaction: Interaction, role: Role | None = None, output_channel: discord.TextChannel | None = None
+    ):
         """This command gives you role IDs of one or all roles in the server. If a role is provided, shows only that
-        role's ID. If omitted, shows all role IDs."""
+        role's ID. If omitted, shows all role IDs. Optionally send the output to another channel."""
         assert interaction.guild is not None
+        paginator = commands.Paginator()
         if role is None:
-            paginator = commands.Paginator()
             for _role in reversed(interaction.guild.roles):
                 paginator.add_line(f"{_role.name}: {_role.id}")
+        else:
+            paginator.add_line(f"{role.name}: {role.id}")
+        if output_channel:
+            await interaction.response.defer(ephemeral=self.bot.ephemeral)
+            for page in paginator.pages:
+                await output_channel.send(page)
+            await self.bot.send_response(interaction, f"Sent to {output_channel.mention}.")
+        else:
             for page in paginator.pages:
                 await self.bot.send_response(interaction, page)
-        else:
-            await self.bot.send_response(interaction, f"```{role.name}: {role.id}```")
 
     @app_commands.command(name="channelids", description="Shows channel IDs for one or all channels in the server.")
     @app_commands.guild_only()
     @app_commands.default_permissions(manage_guild=True)
-    @app_commands.describe(channel="Channel to get the ID for, or omit for all channels.")
-    async def slash_channelids(self, interaction: Interaction, channel: discord.abc.GuildChannel | None = None):
+    @app_commands.describe(
+        channel="Channel to get the ID for, or omit for all channels.",
+        output_channel="Channel to send the output to. If omitted, responds here.",
+    )
+    async def slash_channelids(
+        self,
+        interaction: Interaction,
+        channel: discord.abc.GuildChannel | None = None,
+        output_channel: discord.TextChannel | None = None,
+    ):
         """This command gives you channel IDs of one or all channels in the server. If a channel is provided, shows
-        only that channel's ID. If omitted, shows all channel IDs."""
+        only that channel's ID. If omitted, shows all channel IDs. Optionally send the output to another channel."""
         assert interaction.guild is not None
+        paginator = commands.Paginator()
         if channel is None:
-            paginator = commands.Paginator()
             for _channel in interaction.guild.channels:
                 paginator.add_line(f"{_channel.name}: {_channel.id}")
-            for page in paginator.pages:
-                await self.bot.send_response(interaction, page)
         else:
             name = getattr(channel, "name", str(channel.id))
-            await self.bot.send_response(interaction, f"```{name}: {channel.id}```")
+            paginator.add_line(f"{name}: {channel.id}")
+        if output_channel:
+            await interaction.response.defer(ephemeral=self.bot.ephemeral)
+            for page in paginator.pages:
+                await output_channel.send(page)
+            await self.bot.send_response(interaction, f"Sent to {output_channel.mention}.")
+        else:
+            for page in paginator.pages:
+                await self.bot.send_response(interaction, page)

@@ -77,7 +77,7 @@ Now that you have started the bot, you can change its settings from inside Disco
 
 **Contact**  
 If you need to get in contact with me for any reason, feel free to send me a message via Discord, Twitter, or leave an issue on this repository if applicable. That said, your best bet is probably to reach me on Discord. If the fact that I made a framework for Discord bots didn't give it away, I use Discord *a lot*.  
-> Discord: Travus#8888  
+> Discord: travus
 > Twitter: [@RealTravus](https://twitter.com/realtravus)  
 > [Open a GitHub Issue](https://github.com/Travus/Travus_Bot_Base/issues/new)  
 > Email: tbb@travus.dev  

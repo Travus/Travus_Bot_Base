@@ -157,7 +157,7 @@ class CoreFunctionalityCog(commands.Cog):
             )
         else:
             try:
-                await self.bot.apply_core_commands_mode(sync=False)
+                await self.bot._apply_core_commands_mode(sync=False)  # pylint: disable=protected-access
                 if {id(com) for com in self.bot.tree.get_commands()} != {id(com) for com in old_tree_commands}:
                     await ctx.send("Syncing slash command tree, this may take a moment...")
                     await self.bot.tree.sync()
@@ -287,7 +287,7 @@ class CoreFunctionalityCog(commands.Cog):
         async with self.bot.db.acquire() as conn:
             await conn.execute("UPDATE settings SET value = $1 WHERE key = 'core_commands_mode'", mode)
         await ctx.send(f"Core commands mode set to `{mode}`.\nSyncing slash command tree, this may take a moment...")
-        await self.bot.apply_core_commands_mode()
+        await self.bot._apply_core_commands_mode()  # pylint: disable=protected-access
         await self.bot.update_status()
         await ctx.send("Slash command tree synced.")
 
