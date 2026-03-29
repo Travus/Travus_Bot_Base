@@ -125,7 +125,7 @@ class GlobalChannel(commands.Converter):
         except commands.ThreadNotFound:
             pass
         try:
-            converted = ctx.bot.get_channel(int(argument))
+            converted = await ctx.bot.fetch_channel(int(argument))
             if converted is None:
                 raise commands.UserInputError("Could not identify channel.")
             return converted
@@ -535,7 +535,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
         for mod in list(default_modules):
             await load_module(default_modules, mod)
         await self.update_command_states()  # Make sure commands are in the right state. (hidden, disabled)
-        await self.apply_core_commands_mode(sync=False)  # Enforce mode before syncing.
+        await self._apply_core_commands_mode(sync=False)  # Enforce mode before syncing.
         await self.tree.sync()  # Sync tree after loading default modules (picks up module slash commands).
 
     async def setup_hook(self):
@@ -588,7 +588,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
         else:
             await interaction.response.send_message(content, **kwargs)
 
-    async def apply_core_commands_mode(self, sync: bool = True):
+    async def _apply_core_commands_mode(self, sync: bool = True):
         """Register/unregister core slash and prefix commands based on core_commands_mode setting."""
         # Slash commands: add or remove from tree
         for cmd in self._core_slash_commands:
