@@ -1,7 +1,6 @@
 import logging
 from asyncio import sleep as asleep  # For waiting asynchronously.
 from os import listdir  # To check files on disk.
-from typing import Optional
 
 from asyncpg import IntegrityConstraintViolationError  # To check for database conflicts.
 from discord import Embed
@@ -518,7 +517,7 @@ class CoreFunctionalityCog(commands.Cog):
         """This command enables commands which have previously been disabled. This will allow them to be used again.
         It will also add the command back into the list of commands shown by the help command and re-enable the
         viewing of it's help text given the command has help text, and it has not otherwise been hidden."""
-        if command_name in self.bot.all_commands.keys():  # Check if command exists and get it's state.
+        if command_name in self.bot.all_commands:  # Check if command exists and get it's state.
             state = await self._command_get_state(self.bot.all_commands[command_name])
             if self.bot.all_commands[command_name].enabled:  # If command is already enabled, report back.
                 await ctx.send(f"The `{clean(ctx, command_name)}` command is already enabled.")
@@ -535,9 +534,9 @@ class CoreFunctionalityCog(commands.Cog):
         """This command can disable other commands. Disabled commands cannot be used and are removed from the
         list of commands shown by the help command. The command's help text will also not be viewable. Core
         commands cannot be disabled. Disabled commands can be re-enabled with the `command enable` command."""
-        if command_name in self.bot.all_commands.keys():  # Check if command exists and get it's state.
+        if command_name in self.bot.all_commands:  # Check if command exists and get it's state.
             state = await self._command_get_state(self.bot.all_commands[command_name])
-            if command_name in self.bot.help.keys() and self.bot.help[command_name].category.lower() == "core":
+            if command_name in self.bot.help and self.bot.help[command_name].category.lower() == "core":
                 await ctx.send("Core commands cannot be disabled.")
             else:
                 if not self.bot.all_commands[command_name].enabled:  # Check if the command is already disabled.
@@ -557,7 +556,7 @@ class CoreFunctionalityCog(commands.Cog):
         will not re-enable the command if it has been disabled. Showing disabled commands alone will not
         be enough to re-add them to the help list since disabling them also hides them from the help list.
         See the `command enable` command to re-enable disabled commands."""
-        if command_name in self.bot.all_commands.keys():  # Check if command exists and get it's state.
+        if command_name in self.bot.all_commands:  # Check if command exists and get it's state.
             state = await self._command_get_state(self.bot.all_commands[command_name])
             if not self.bot.all_commands[command_name].hidden:  # Check if command i already visible.
                 await ctx.send(f"The `{clean(ctx, command_name)}` command is already shown.")
@@ -574,7 +573,7 @@ class CoreFunctionalityCog(commands.Cog):
         """This command will hide commands from the list of commands shown by the help command. It will
         not disable the viewing of the help text for the command if someone already knows it's name.
         Commands who have been hidden can be un-hidden with the `command show` command."""
-        if command_name in self.bot.all_commands.keys():  # Check if command exists and get it's state.
+        if command_name in self.bot.all_commands:  # Check if command exists and get it's state.
             state = await self._command_get_state(self.bot.all_commands[command_name])
             if self.bot.all_commands[command_name].hidden:  # Check if command is already hidden.
                 await ctx.send(f"The `{clean(ctx, command_name)}` command is already hidden.")
@@ -592,17 +591,17 @@ class CoreFunctionalityCog(commands.Cog):
         bot's name is used then information about the bot itself is shown."""
         assert self.bot.user is not None
         if module_name is None:  # If no value is passed along we display the about page for the bot itself.
-            if self.bot.user.name.lower() in self.bot.modules.keys():  # Check if the bot has an entry.
+            if self.bot.user.name.lower() in self.bot.modules:  # Check if the bot has an entry.
                 embed = self.bot.modules[self.bot.user.name.lower()].make_about_embed(ctx)  # Make and send response.
                 await ctx.send(embed=embed)
             else:
                 raise RuntimeError("Bot info module not found.")
-        elif module_name.lower() in self.bot.modules.keys():  # Check if the passed along value has an entry.
+        elif module_name.lower() in self.bot.modules:  # Check if the passed along value has an entry.
             embed = self.bot.modules[module_name.lower()].make_about_embed(ctx)  # Make and send response.
             await ctx.send(embed=embed)
         else:
             response = f"No information for `{clean(ctx, module_name)}` module was found."
-            if module_name not in [mod.replace("modules.", "") for mod in self.bot.extensions.keys()]:
+            if module_name not in [mod.replace("modules.", "") for mod in self.bot.extensions]:
                 response += "\nAdditionally no module with this name is loaded."
             await ctx.send(response)
 
@@ -637,7 +636,7 @@ class CoreFunctionalityCog(commands.Cog):
                 f"optional, sending just `{pref}about` is also a valid command."
             )
             await ctx.send(response)
-        elif module_name.lower() in self.bot.modules.keys():
+        elif module_name.lower() in self.bot.modules:
             usage = self.bot.modules[module_name.lower()].usage
             if usage is None:
                 await ctx.send(f"The `{clean(ctx, module_name)}` module does not have its usage defined.")
@@ -649,7 +648,7 @@ class CoreFunctionalityCog(commands.Cog):
                     await ctx.send(embed=usage_content)
         else:
             response = f"No information for `{clean(ctx, module_name)}` module was found."
-            if module_name not in [mod.replace("modules.", "") for mod in self.bot.extensions.keys()]:
+            if module_name not in [mod.replace("modules.", "") for mod in self.bot.extensions]:
                 response += "\nAdditionally no module with this name is loaded."
             await ctx.send(response)
 
@@ -729,7 +728,7 @@ class CoreFunctionalityCog(commands.Cog):
 
     @commands.is_owner()
     @commands.command(name="shutdown", aliases=["goodbye", "goodnight"], usage="(TIME BEFORE SHUTDOWN)")
-    async def shutdown(self, ctx: commands.Context, countdown: Optional[str] = None):
+    async def shutdown(self, ctx: commands.Context, countdown: str | None = None):
         """This command turns the bot off. A delay can be set causing the bot to wait before shutting down. The time
         uses a format of numbers followed by units, see examples for details. Times supported are weeks (w), days (d),
         hours (h), minutes (m) and seconds (s), and even negative numbers. For this command the delay must be between

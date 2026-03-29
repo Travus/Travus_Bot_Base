@@ -2,10 +2,10 @@ import copy
 import io
 import logging
 import os
-from collections.abc import Coroutine
+from collections.abc import Callable, Coroutine, Iterable
 from re import compile as re_cmp  # Regex functions used in clean function for detecting mentions.
 from re import findall
-from typing import Any, Callable, Iterable, Optional, Type, TypeVar
+from typing import Any, TypeVar
 
 import asyncpg
 import discord
@@ -191,8 +191,8 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
             get_prefix: Callable,
             command: Command | Group | app_commands.Command | app_commands.Group,
             category: str = "no category",
-            restrictions: Optional[dict[str, list[str] | str]] = None,
-            examples: Optional[list[str]] = None,
+            restrictions: dict[str, list[str] | str] | None = None,
+            examples: list[str] | None = None,
         ):
             """Initialization function loading all necessary information for HelpInfo class."""
             res = restrictions  # Shortening often used variable name.
@@ -201,9 +201,9 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
             self.is_slash = isinstance(command, (app_commands.Command, app_commands.Group))
             self.category = category
             self.examples = examples or []
-            self.permissions = res["perms"] if isinstance(res, dict) and "perms" in res.keys() else []
-            self.roles = res["roles"] if isinstance(res, dict) and "roles" in res.keys() else []
-            self.other_restrictions = res["other"] if isinstance(res, dict) and "other" in res.keys() else ""
+            self.permissions = res["perms"] if isinstance(res, dict) and "perms" in res else []
+            self.roles = res["roles"] if isinstance(res, dict) and "roles" in res else []
+            self.other_restrictions = res["other"] if isinstance(res, dict) and "other" in res else ""
             self.owner_only, self.guild_only, self.dm_only = False, False, False
 
             if isinstance(command, (app_commands.Command, app_commands.Group)):
@@ -261,10 +261,10 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
             get_prefix: Callable,
             name: str,
             author: str,
-            usage: Optional[Callable[[], str | Embed]] = None,
-            description: Optional[str] = None,
-            extra_credits: Optional[str] = None,
-            image_link: Optional[str | discord.Asset] = None,
+            usage: Callable[[], str | Embed] | None = None,
+            description: str | None = None,
+            extra_credits: str | None = None,
+            image_link: str | discord.Asset | None = None,
         ):
             """Initialization function loading all necessary information for ModuleInfo class."""
             self.get_prefix = get_prefix
@@ -301,7 +301,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
 
         def __init__(self):
             """Initialization function that sets help and usage text for custom help command."""
-            super(TravusBotBase._CustomHelp, self).__init__(
+            super().__init__(
                 command_attrs={
                     "help": """This command shows a list of categorized commands you have access to. If the name of
                     a command is sent along it will show detailed help information for that command, such as what the
@@ -312,7 +312,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
 
         async def _send_help_entry(self, com_object):
             """Help function which sends help entry og single command. Factored out for DRYer code."""
-            if com_object.qualified_name in self.context.bot.help.keys():
+            if com_object.qualified_name in self.context.bot.help:
                 if com_object.enabled:
                     embed = self.context.bot.help[com_object.qualified_name].make_help_embed(self.context)
                     await self.get_destination().send(embed=embed)  # Send command help info.
@@ -335,7 +335,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
                 await self.get_destination().send("No help information was found.")
                 return
             for com_text, com in filtered_mapping.items():
-                if com.qualified_name in self.context.bot.help.keys():
+                if com.qualified_name in self.context.bot.help:
                     command_help = self.context.bot.help[com.qualified_name]  # Get command help info.
                     category = command_help.category.lower() if command_help.category else "no category"
                     if category not in categories:  # Add category if it wasn't encountered before.
@@ -366,7 +366,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
 
         async def send_command_help(self, command_object: Command[Any, ..., Any], /):
             """Function that triggers when help command is used with a command."""
-            while command_object.qualified_name not in self.context.bot.help.keys() and len(command_object.parents):
+            while command_object.qualified_name not in self.context.bot.help and len(command_object.parents):
                 command_object = command_object.parents[0]  # Get parent in case it has help text.
             await self._send_help_entry(command_object)
 
@@ -377,7 +377,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
 
         async def send_group_help(self, group: Group[Any, ..., Any], /):
             """Function that triggers when help command is used with a group."""
-            while group.qualified_name not in self.context.bot.help.keys() and len(group.parents):
+            while group.qualified_name not in self.context.bot.help and len(group.parents):
                 group = group.parents[0]  # Get parent in case it has help text.
             await self._send_help_entry(group)
 
@@ -393,16 +393,16 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
         """Initialization function loading all necessary information for TravusBotBase class."""
         super().__init__(*args, **kwargs)
         self.log: logging.Logger = BOT_LOG
-        self.last_module_error: Optional[str] = None
-        self.last_error: Optional[str] = None
-        self.extension_ctx: Optional[Context] = None
+        self.last_module_error: str | None = None
+        self.last_error: str | None = None
+        self.extension_ctx: Context | None = None
         self.help: dict[str, TravusBotBase._HelpInfo] = {}
         self.modules: dict[str, TravusBotBase._ModuleInfo] = {}
         self.is_connected: int = 0
         self.help_command = self._CustomHelp()
         self.config: dict[str, str] = {}
         self._db_creds = database_credentials
-        self.prefix: Optional[str] = None
+        self.prefix: str | None = None
         self.delete_messages: int = 1
         self.ephemeral: bool = True
         self.core_commands_mode: str = "slash"
@@ -411,7 +411,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
         self.send_long_text: Callable[[Context, str], Coroutine[Any, Any, None]] = send_long_text
 
     async def get_context(
-        self, origin: Message | Interaction, /, *, cls: Optional[Type[_ContextT]] = None
+        self, origin: Message | Interaction, /, *, cls: type[_ContextT] | None = None
     ) -> TBBContext | _ContextT:
         """Create TBBContexts with correct bot typing."""
         return await super().get_context(origin, cls=cls or TBBContext)
@@ -502,14 +502,15 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
                 self.modules = old_modules
                 if propagate:
                     raise
-                if isinstance(e.original, DependencyError):
-                    if all(load_module(default_list, dependency) for dependency in e.original.missing_dependencies):
-                        try:
-                            default_list.append(module)
-                            if load_module(default_list, module, True):
-                                return True
-                        except Exception as ee:
-                            e = ee
+                if isinstance(e.original, DependencyError) and all(
+                    load_module(default_list, dependency) for dependency in e.original.missing_dependencies
+                ):
+                    try:
+                        default_list.append(module)
+                        if load_module(default_list, module, True):
+                            return True
+                    except Exception as ee:
+                        e = ee
                 self.log.error(f"Default module '{module}' encountered and error.\n\n{e!s}")
                 self.last_module_error = f"The `{module}` module failed while loading. The error was:\n\n{e!s}"
                 return False
@@ -620,10 +621,10 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
         self,
         name: str,
         author: str,
-        usage: Optional[Callable[[], str | Embed]] = None,
-        description: Optional[str] = None,
-        additional_credits: Optional[str] = None,
-        image_link: Optional[str | discord.Asset] = None,
+        usage: Callable[[], str | Embed] | None = None,
+        description: str | None = None,
+        additional_credits: str | None = None,
+        image_link: str | discord.Asset | None = None,
     ):
         """Function that is used to add module info to the bot correctly. Used to minimize developmental errors."""
         info = self._ModuleInfo(self.get_bot_prefix, name, author, usage, description, additional_credits, image_link)
@@ -649,25 +650,24 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
 
     async def update_command_states(self):
         """Function that get command state (hidden, disabled) for every command currently loaded."""
-        async with self.db.acquire() as conn:
-            async with conn.transaction():
-                for command in self.commands:
-                    cog_com_name = f"{f'{command.cog_name}.' if command.cog_name else ''}{command.name}"
-                    command_state = await conn.fetchval(
-                        "SELECT state FROM command_states WHERE command = $1;", cog_com_name
-                    )
-                    if command_state is None:  # If a command has no state registered, set it to visible and enables.
-                        command_state = (0,)
-                        await conn.execute("INSERT INTO command_states VALUES ($1, $2)", cog_com_name, 0)
-                    if command_state == 1:  # Set command to be hidden.
-                        command.enabled = True
-                        command.hidden = True
-                    elif command_state == 2:  # Set command to be disabled.
-                        command.enabled = False
-                        command.hidden = False
-                    elif command_state == 3:  # Set command to be hidden and disabled.
-                        command.enabled = False
-                        command.hidden = True
+        async with self.db.acquire() as conn, conn.transaction():
+            for command in self.commands:
+                cog_com_name = f"{f'{command.cog_name}.' if command.cog_name else ''}{command.name}"
+                command_state = await conn.fetchval(
+                    "SELECT state FROM command_states WHERE command = $1;", cog_com_name
+                )
+                if command_state is None:  # If a command has no state registered, set it to visible and enables.
+                    command_state = (0,)
+                    await conn.execute("INSERT INTO command_states VALUES ($1, $2)", cog_com_name, 0)
+                if command_state == 1:  # Set command to be hidden.
+                    command.enabled = True
+                    command.hidden = True
+                elif command_state == 2:  # Set command to be disabled.
+                    command.enabled = False
+                    command.hidden = False
+                elif command_state == 3:  # Set command to be hidden and disabled.
+                    command.enabled = False
+                    command.hidden = True
 
     def add_command_help(
         self,
@@ -682,7 +682,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
             self.get_bot_prefix, command, category, restrictions, examples
         )
 
-    def remove_command_help(self, command: Command | Type[Cog] | str | list[Command | str]):
+    def remove_command_help(self, command: Command | type[Cog] | str | list[Command | str]):
         """Function that is used to remove command help info from the bot correctly. Used to minimize developmental
         errors."""
         if isinstance(command, list):  # Remove all in list, if list is passed.
@@ -697,13 +697,12 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
             for com in command(self).walk_commands():
                 if com.qualified_name in self.help:
                     del self.help[com.qualified_name]
-        elif isinstance(command, str):
-            if command in self.help:
-                del self.help[command]
+        elif isinstance(command, str) and command in self.help:
+            del self.help[command]
 
     async def update_status(
         self,
-        text: Optional[str] = None,
+        text: str | None = None,
         activity_type: discord.ActivityType = discord.ActivityType.listening,
     ):
         """Update bot presence/status. If no text is given, defaults to showing the current prefix/help info
@@ -735,7 +734,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
             )
             bot_desc = bot_desc or "No description for the bot found. Set description with `botconfig` command."
             self.add_module(self.user.name, bot_author, None, bot_desc, bot_credits, self.user.display_avatar)
-        await self._update_status()
+        await self.update_status()
         self.is_connected = 1  # Flag that the bot is currently connected to Discord.
         self.log.info(f"{self.user.name} is ready!\n------------------------------")
 
@@ -802,9 +801,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
     async def _on_app_command_error(self, interaction: Interaction, error: app_commands.AppCommandError):
         """Global error handler for app command errors. Assigned to tree.on_error in setup_hook."""
         command_name = interaction.command.qualified_name if interaction.command else "unknown"
-        if isinstance(error, app_commands.CommandOnCooldown):
-            pass
-        elif isinstance(error, app_commands.NoPrivateMessage):
+        if isinstance(error, (app_commands.CommandOnCooldown, app_commands.NoPrivateMessage)):
             pass
         elif isinstance(error, app_commands.MissingPermissions):
             self.log.warning(
@@ -846,7 +843,7 @@ def parse_time(
     return t_total
 
 
-async def send_in_global_channel(ctx: Context, channel: Optional[GlobalTextChannel], msg: str, other_dms: bool = False):
+async def send_in_global_channel(ctx: Context, channel: GlobalTextChannel | None, msg: str, other_dms: bool = False):
     """Sends a message in any text channel across servers and DMs. Has flag to allow sending to foreign DMs."""
     user = ctx.author
     try:
@@ -910,7 +907,7 @@ async def del_message(msg: Message):
 
 def _clean(
     bot: TravusBotBase,
-    guild: Optional[discord.Guild],
+    guild: discord.Guild | None,
     text: str,
     escape_markdown: bool = True,
     replace_backticks: bool = False,
@@ -967,7 +964,7 @@ def clean(ctx: Context, text: str, escape_markdown: bool = True, replace_backtic
 
 def clean_no_ctx(
     bot: TravusBotBase,
-    guild: Optional[discord.Guild],
+    guild: discord.Guild | None,
     text: str,
     escape_markdown: bool = True,
     replace_backticks: bool = False,
