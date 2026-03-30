@@ -276,13 +276,13 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
             self.image = image_link
             self.usage = usage
 
-        def make_about_embed(self, ctx: Context) -> Embed:
+        def make_about_embed(self, user: User | Member) -> Embed:
             """Creates embeds for module based on info stored in class."""
             embed = Embed(colour=discord.Color(0x4A4A4A), timestamp=discord.utils.utcnow())
             description = self.description.replace("_prefix_", self.get_prefix())
             embed.description = description if len(description) < 4097 else f"{description[:4092]}..."
             embed.set_author(name=self.name)
-            embed.set_footer(text=ctx.author.display_name, icon_url=ctx.author.display_avatar)
+            embed.set_footer(text=user.display_name, icon_url=user.display_avatar)
             if self.image:
                 embed.set_thumbnail(url=self.image)
             author = self.author if len(self.author) < 1024 else f"{self.author[:1020]}..."
@@ -292,7 +292,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
                 extra_credits = self.credits if len(self.credits) < 1024 else f"{self.credits[:1020]}..."
                 embed.add_field(name="Authored By", value=author, inline=True)
                 embed.add_field(name="Additional Credits", value=extra_credits, inline=True)
-            return check_embed_length(ctx.author, embed)
+            return check_embed_length(user, embed)
 
     class _CustomHelp(commands.HelpCommand):
         """Class for custom help command."""
@@ -395,7 +395,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
         self.log: logging.Logger = BOT_LOG
         self.last_module_error: str | None = None
         self.last_error: str | None = None
-        self.extension_ctx: Context | None = None
+        self.extension_ctx: Context | Interaction | None = None
         self.help: dict[str, TravusBotBase._HelpInfo] = {}
         self.modules: dict[str, TravusBotBase._ModuleInfo] = {}
         self.is_connected: int = 0
