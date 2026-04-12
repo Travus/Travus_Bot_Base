@@ -23,49 +23,38 @@ async def setup(bot: tbb.TravusBotBase):
     )
     # pylint: disable-next=protected-access
     bot._core_prefix_commands.extend([cog.about, cog.usage, cog.module, cog.default, cog.config, cog.command])
+    # /help is added to the tree automatically by add_cog. It is NOT in _core_slash_commands,
+    # so _apply_core_commands_mode never removes it — /help is always available regardless of mode.
     bot.add_command_help(CoreFunctionalityCog.module_list, "Core", {"perms": ["Administrator"]}, [""])
     bot.add_command_help(CoreFunctionalityCog.module_load, "Core", {"perms": ["Administrator"]}, ["fun", "economy"])
     bot.add_command_help(CoreFunctionalityCog.module_unload, "Core", {"perms": ["Administrator"]}, ["fun", "economy"])
     bot.add_command_help(CoreFunctionalityCog.module_reload, "Core", {"perms": ["Administrator"]}, ["fun", "economy"])
     bot.add_command_help(CoreFunctionalityCog.module_lasterror, "Core", {"perms": ["Administrator"]}, [""])
-    bot.add_command_help(CoreFunctionalityCog.slash_module_list, "Core", {"perms": ["Administrator"]}, [""])
     bot.add_command_help(
-        CoreFunctionalityCog.slash_module_load, "Core", {"perms": ["Administrator"]}, ["fun", "economy"]
+        CoreFunctionalityCog.slash_module, "Core", None, ["list", "load", "unload", "reload", "lasterror"]
     )
-    bot.add_command_help(
-        CoreFunctionalityCog.slash_module_unload, "Core", {"perms": ["Administrator"]}, ["fun", "economy"]
-    )
-    bot.add_command_help(
-        CoreFunctionalityCog.slash_module_reload, "Core", {"perms": ["Administrator"]}, ["fun", "economy"]
-    )
-    bot.add_command_help(CoreFunctionalityCog.slash_module_lasterror, "Core", {"perms": ["Administrator"]}, [""])
+    bot.add_command_help(CoreFunctionalityCog.slash_module_list, "Core", None, [""])
+    bot.add_command_help(CoreFunctionalityCog.slash_module_load, "Core", None, ["fun", "economy"])
+    bot.add_command_help(CoreFunctionalityCog.slash_module_unload, "Core", None, ["fun", "economy"])
+    bot.add_command_help(CoreFunctionalityCog.slash_module_reload, "Core", None, ["fun", "economy"])
+    bot.add_command_help(CoreFunctionalityCog.slash_module_lasterror, "Core", None, [""])
     bot.add_command_help(CoreFunctionalityCog.default, "Core", None, ["list", "add", "remove"])
     bot.add_command_help(CoreFunctionalityCog.default_list, "Core", None, [""])
     bot.add_command_help(CoreFunctionalityCog.default_add, "Core", None, ["fun", "economy"])
     bot.add_command_help(CoreFunctionalityCog.default_remove, "Core", None, ["fun", "economy"])
-    bot.add_command_help(CoreFunctionalityCog.slash_default_list, "Core", {"perms": ["Administrator"]}, [""])
-    bot.add_command_help(
-        CoreFunctionalityCog.slash_default_add, "Core", {"perms": ["Administrator"]}, ["fun", "economy"]
-    )
-    bot.add_command_help(
-        CoreFunctionalityCog.slash_default_remove, "Core", {"perms": ["Administrator"]}, ["fun", "economy"]
-    )
+    bot.add_command_help(CoreFunctionalityCog.slash_default, "Core", None, ["list", "add", "remove"])
+    bot.add_command_help(CoreFunctionalityCog.slash_default_list, "Core", None, [""])
+    bot.add_command_help(CoreFunctionalityCog.slash_default_add, "Core", None, ["fun", "economy"])
+    bot.add_command_help(CoreFunctionalityCog.slash_default_remove, "Core", None, ["fun", "economy"])
     bot.add_command_help(CoreFunctionalityCog.command_enable, "Core", {"perms": ["Administrator"]}, ["balance", "pay"])
     bot.add_command_help(CoreFunctionalityCog.command_disable, "Core", {"perms": ["Administrator"]}, ["balance", "pay"])
     bot.add_command_help(CoreFunctionalityCog.command_show, "Core", {"perms": ["Administrator"]}, ["module", "balance"])
     bot.add_command_help(CoreFunctionalityCog.command_hide, "Core", {"perms": ["Administrator"]}, ["module", "balance"])
-    bot.add_command_help(
-        CoreFunctionalityCog.slash_command_enable, "Core", {"perms": ["Administrator"]}, ["balance", "pay"]
-    )
-    bot.add_command_help(
-        CoreFunctionalityCog.slash_command_disable, "Core", {"perms": ["Administrator"]}, ["balance", "pay"]
-    )
-    bot.add_command_help(
-        CoreFunctionalityCog.slash_command_show, "Core", {"perms": ["Administrator"]}, ["module", "balance"]
-    )
-    bot.add_command_help(
-        CoreFunctionalityCog.slash_command_hide, "Core", {"perms": ["Administrator"]}, ["module", "balance"]
-    )
+    bot.add_command_help(CoreFunctionalityCog.slash_command, "Core", None, ["enable", "disable", "show", "hide"])
+    bot.add_command_help(CoreFunctionalityCog.slash_command_enable, "Core", None, ["balance", "pay"])
+    bot.add_command_help(CoreFunctionalityCog.slash_command_disable, "Core", None, ["balance", "pay"])
+    bot.add_command_help(CoreFunctionalityCog.slash_command_show, "Core", None, ["module", "balance"])
+    bot.add_command_help(CoreFunctionalityCog.slash_command_hide, "Core", None, ["module", "balance"])
     bot.add_command_help(CoreFunctionalityCog.about, "Core", None, ["", "fun"])
     bot.add_command_help(CoreFunctionalityCog.slash_about, "Core", None, ["", "dev"])
     bot.add_command_help(CoreFunctionalityCog.usage, "Core", None, ["", "dev"])
@@ -73,18 +62,10 @@ async def setup(bot: tbb.TravusBotBase):
     bot.add_command_help(CoreFunctionalityCog.config, "Core", {"perms": ["Administrator"]}, ["get", "set", "unset"])
     bot.add_command_help(CoreFunctionalityCog.config_get, "Core", {"perms": ["Administrator"]}, ["", "alert_channel"])
     bot.add_command_help(CoreFunctionalityCog.config_unset, "Core", {"perms": ["Administrator"]}, ["alert_channel"])
-    bot.add_command_help(
-        CoreFunctionalityCog.slash_config_get, "Core", {"perms": ["Administrator"]}, ["", "alert_channel"]
-    )
-    bot.add_command_help(
-        CoreFunctionalityCog.slash_config_set,
-        "Core",
-        {"perms": ["Administrator"]},
-        ["alert_channel 353246496952418305"],
-    )
-    bot.add_command_help(
-        CoreFunctionalityCog.slash_config_unset, "Core", {"perms": ["Administrator"]}, ["alert_channel"]
-    )
+    bot.add_command_help(CoreFunctionalityCog.slash_config, "Core", None, ["get", "set", "unset"])
+    bot.add_command_help(CoreFunctionalityCog.slash_config_get, "Core", None, ["", "alert_channel"])
+    bot.add_command_help(CoreFunctionalityCog.slash_config_set, "Core", None, ["alert_channel 353246496952418305"])
+    bot.add_command_help(CoreFunctionalityCog.slash_config_unset, "Core", None, ["alert_channel"])
     bot.add_command_help(CoreFunctionalityCog.shutdown, "Core", None, ["", "1h", "1h30m", "10m-30s", "2m30s"])
     bot.add_command_help(CoreFunctionalityCog.botconfig_prefix, "Core", None, ["$", "bot!", "bot ?", "remove"])
     bot.add_command_help(CoreFunctionalityCog.botconfig_deletemessages, "Core", None, ["enable", "y", "disable", "n"])
@@ -94,7 +75,7 @@ async def setup(bot: tbb.TravusBotBase):
         CoreFunctionalityCog.botconfig,
         "Core",
         None,
-        ["prefix", "deletemessages", "description", "credits", "ephemeral", "core-commands"],
+        ["prefix", "deletemessages", "description", "credits", "ephemeral", "corecommands"],
     )
     bot.add_command_help(
         CoreFunctionalityCog.botconfig_description, "Core", None, ["remove", "This is a sample description."]
@@ -114,6 +95,7 @@ async def setup(bot: tbb.TravusBotBase):
         None,
         ["remove", "`\n```\n[Person](URL):\n\tBot Profile Image\n``"],
     )
+    bot.add_command_help(CoreFunctionalityCog.slash_help, "Core", None, ["", "about", "module list"])
 
 
 async def teardown(bot: tbb.TravusBotBase):
@@ -123,7 +105,7 @@ async def teardown(bot: tbb.TravusBotBase):
     bot._core_slash_commands = [com for com in bot._core_slash_commands if com.name not in core_cmd_names]
     # pylint: disable-next=protected-access
     bot._core_prefix_commands = [com for com in bot._core_prefix_commands if com.name not in core_cmd_names]
-    await bot.remove_cog("CoreFunctionalityCog")  # Remove cog and command help info.
+    await bot.remove_cog("CoreFunctionalityCog")  # Remove cog, command help info, and /help from tree.
     bot.remove_command_help(CoreFunctionalityCog)
 
 
@@ -258,12 +240,12 @@ class CoreFunctionalityCog(commands.Cog):
     @commands.group(
         invoke_without_command=True,
         name="botconfig",
-        usage="<prefix/deletemessages/description/credits/ephemeral/core-commands>",
+        usage="<prefix/deletemessages/description/credits/ephemeral/corecommands>",
     )
     async def botconfig(self, ctx: commands.Context):
         """This command sets the bot's prefix, command trigger deletion behaviour, description, additional credits
         section, ephemeral response behaviour, and core command mode. For more information, check the help entry of one
-        of these subcommands; `prefix`, `deletemessages`, `description`, `credits`, `ephemeral`, `core-commands`."""
+        of these subcommands; `prefix`, `deletemessages`, `description`, `credits`, `ephemeral`, `corecommands`."""
         assert ctx.command is not None
         raise commands.BadArgument(f"No subcommand given for {ctx.command.name}.")
 
@@ -348,7 +330,7 @@ class CoreFunctionalityCog(commands.Cog):
                 raise commands.BadArgument("Operation not supported.")
 
     @commands.is_owner()
-    @botconfig.command(name="core-commands", aliases=["corecommands", "corecmds"], usage="<slash/prefix/both>")
+    @botconfig.command(name="corecommands", aliases=["core-commands", "corecmds"], usage="<slash/prefix/both>")
     async def botconfig_core_commands(self, ctx: commands.Context, mode: str):
         """This command sets whether core commands are registered as slash commands, prefix commands, or both. The
         default is `slash`. The `help` command always exists as both slash and prefix regardless of this setting.
@@ -920,6 +902,11 @@ class CoreFunctionalityCog(commands.Cog):
         guild_only=True,
         default_permissions=discord.Permissions(administrator=True),
     )
+    slash_module.__doc__ = """This command can load, unload, reload and list available modules. It can also show any
+    errors that occur during the loading process. Modules contain added functionality, such as commands. The intended
+    purpose for modules is to extend the bot's functionality in semi-independent packages so that parts of the bot's
+    functionality can be removed or restarted without affecting the rest of the bot's functionality. See the help text
+    for the subcommands for more info."""
 
     @slash_module.command(name="list", description="Lists loaded and available modules.")
     async def slash_module_list(self, interaction: Interaction):
@@ -1025,6 +1012,10 @@ class CoreFunctionalityCog(commands.Cog):
         guild_only=True,
         default_permissions=discord.Permissions(administrator=True),
     )
+    slash_default.__doc__ = """This command is used to add, remove or list default modules. Modules contain added
+    functionality, such as commands. Default modules are loaded automatically when the bot starts and as such any
+    functionality in them will be available as soon as the bot is online. For more info see the help text of the
+    subcommands."""
 
     @slash_default.command(name="list", description="Lists all default modules.")
     async def slash_default_list(self, interaction: Interaction):
@@ -1101,6 +1092,9 @@ class CoreFunctionalityCog(commands.Cog):
         guild_only=True,
         default_permissions=discord.Permissions(administrator=True),
     )
+    slash_config.__doc__ = """This command is used to get, set and unset configuration options used by other modules
+    or commands. All config options are saved as strings. Converting them to the proper type is up to the module or
+    command that uses them. See the help text for the subcommands for more info."""
 
     @slash_config.command(name="get", description="Shows the value of a config option, or all options.")
     @app_commands.describe(option="Config option to look up, or omit to show all.")
@@ -1197,6 +1191,11 @@ class CoreFunctionalityCog(commands.Cog):
         guild_only=True,
         default_permissions=discord.Permissions(administrator=True),
     )
+    slash_command.__doc__ = """This command disables, enables, hides and shows prefix commands. Hiding commands means
+    they don't show up in the overall help command list. Disabling a command means it can't be used. Disabled commands
+    also do not show up in the overall help command list and the specific help text for the command will not be
+    viewable. Core commands cannot be disabled. These settings are saved across restarts. Slash command visibility is
+    managed through Discord's integrations panel in server settings."""
 
     @slash_command.command(name="enable", description="Enables a previously disabled prefix command.")
     @app_commands.describe(command_name="Name of the prefix command to enable.")
@@ -1312,4 +1311,27 @@ class CoreFunctionalityCog(commands.Cog):
     ) -> list[app_commands.Choice[str]]:
         """Autocomplete for /command hide — shows non-hidden commands."""
         names = sorted({cmd.name for cmd in self.bot.all_commands.values() if not cmd.hidden})
+        return [app_commands.Choice(name=name, value=name) for name in names if current.lower() in name.lower()][:25]
+
+    @app_commands.command(name="help", description="Shows help info for the bot or a specific command.")
+    @app_commands.describe(command="Command to show help for, or omit for the full command list.")
+    async def slash_help(self, interaction: Interaction, command: str | None = None):
+        """This command shows a list of categorized commands you have access to. If the name of a command is sent along
+        it will show detailed help information for that command, such as what the command does, aliases, what
+        restrictions it has, and examples."""
+        ctx = await self.bot.get_context(interaction, cls=tbb.TBBContext)
+        if command:
+            # Direct lookup bypassing discord.py's prefix-only resolution.
+            assert self.bot.help_command is not None
+            help_cmd = self.bot.help_command.copy()
+            help_cmd.context = ctx  # type: ignore[assignment]  # TBBContext is a valid Context.
+            send_help = help_cmd._send_help_entry  # type: ignore  # pylint: disable=protected-access
+            await send_help(command)
+        else:
+            await ctx.send_help()
+
+    @slash_help.autocomplete("command")
+    async def slash_help_autocomplete(self, _interaction: Interaction, current: str) -> list[app_commands.Choice[str]]:
+        """Autocomplete for /help — shows all available help entries."""
+        names = sorted({*self.bot.help, *self.bot.slash_help})
         return [app_commands.Choice(name=name, value=name) for name in names if current.lower() in name.lower()][:25]
