@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 import copy
 import io
 import logging
@@ -207,7 +208,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
             self.owner_only, self.guild_only, self.dm_only = False, False, False
 
             if isinstance(command, (app_commands.Command, app_commands.Group)):
-                doc = command.callback.__doc__ if isinstance(command, app_commands.Command) else None
+                doc = command.callback.__doc__ if isinstance(command, app_commands.Command) else command.__doc__
                 self.description = doc.replace("\n", " ") if doc else command.description or "No description found."
                 self.aliases = [command.name]
                 self.guild_only = command.guild_only
@@ -309,17 +310,83 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
                     "usage": "(COMMAND NAME)",
                 }
             )
+            self._is_subcommand_error: bool = False
 
-        async def _send_help_entry(self, com_object):
-            """Help function which sends help entry og single command. Factored out for DRYer code."""
-            if com_object.qualified_name in self.context.bot.help:
-                if com_object.enabled:
-                    embed = self.context.bot.help[com_object.qualified_name].make_help_embed(self.context)
-                    await self.get_destination().send(embed=embed)  # Send command help info.
-                else:
-                    await self.get_destination().send(f"The `{com_object.qualified_name}` command has been disabled.")
+        async def _deliver(self, content: str | None = None, embed: Embed | None = None):
+            """Route output to interaction response or channel depending on invocation method."""
+            if self.context.interaction is not None:
+                await self.context.bot.send_response(self.context.interaction, content or "", embed=embed)
             else:
-                await self.get_destination().send("No help information is registered for this command.")
+                assert self.context.channel is not None
+                if embed is not None:
+                    await self.context.channel.send(content, embed=embed)
+                else:
+                    await self.context.channel.send(content)
+
+        async def _send_help_entry(self, name: str):  # pylint: disable=too-many-return-statements
+            """Look up and send help for a command by name, checking both prefix and slash help dicts."""
+            bot = self.context.bot
+            invoked_via_slash = self.context.interaction is not None
+            core_slash_cmds = bot._core_slash_commands  # pylint: disable=protected-access
+            core_prefix_cmds = bot._core_prefix_commands  # pylint: disable=protected-access
+            core_slash_top_names = {com.name for com in core_slash_cmds}
+
+            if invoked_via_slash:
+                primary, secondary = bot.slash_help, bot.help
+            else:
+                primary, secondary = bot.help, bot.slash_help
+
+            entry = primary.get(name)
+            if entry:
+                if invoked_via_slash:
+                    # Primary is slash_help. Check if core slash cmd is mode-disabled (prefix-only mode).
+                    if name.split(" ")[0] in core_slash_top_names and bot.core_commands_mode == "prefix":
+                        fallback = secondary.get(name)
+                        if fallback:
+                            cmd = bot.get_command(name)
+                            if cmd is not None and cmd.enabled:
+                                await self._deliver(embed=fallback.make_help_embed(self.context))
+                                return
+                        await self._deliver(f"The `{name}` command has been disabled.")
+                        return
+                    await self._deliver(embed=entry.make_help_embed(self.context))
+                    return
+                # Primary is bot.help. Check if prefix command is disabled.
+                cmd = bot.get_command(name)
+                assert cmd is not None
+                # Mode-disabled: command itself or any parent group is a core prefix cmd in slash-only mode.
+                is_mode_disabled = bot.core_commands_mode == "slash" and (
+                    cmd in core_prefix_cmds or any(p in core_prefix_cmds for p in cmd.parents)
+                )
+                if not is_mode_disabled and cmd.enabled:
+                    await self._deliver(embed=entry.make_help_embed(self.context))
+                    return
+                if is_mode_disabled:
+                    fallback = secondary.get(name)
+                    if fallback:
+                        await self._deliver(embed=fallback.make_help_embed(self.context))
+                        return
+                await self._deliver(f"The `{name}` command has been disabled.")
+                return
+
+            # Not in primary — check secondary.
+            fallback = secondary.get(name)
+            if fallback:
+                if invoked_via_slash:
+                    # Secondary is bot.help. Check if prefix command is user-disabled.
+                    cmd = bot.get_command(name)
+                    if cmd and not cmd.enabled and not (cmd in core_prefix_cmds and bot.core_commands_mode == "slash"):
+                        await self._deliver(f"The `{name}` command has been disabled.")
+                        return
+                else:
+                    # Secondary is bot.slash_help. Check if slash command is mode-disabled.
+                    if name.split(" ")[0] in core_slash_top_names and bot.core_commands_mode == "prefix":
+                        await self._deliver(f"No command called `{name}` found.")
+                        return
+                await self._deliver(embed=fallback.make_help_embed(self.context))
+                return
+
+            await self._deliver(f"No command called `{name}` found.")
 
         async def _send_command_list(self, full_mapping: set[Command]):
             """Help function which sends the command list. Factored out for DRYer code."""
@@ -332,7 +399,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
             dm_only = {f"`{com.qualified_name}`¹": com for com in non_passing if await can_run(com, new_ctx)}
             filtered_mapping.update(dm_only)
             if not filtered_mapping:
-                await self.get_destination().send("No help information was found.")
+                await self._deliver("No help information was found.")
                 return
             for com_text, com in filtered_mapping.items():
                 if com.qualified_name in self.context.bot.help:
@@ -345,16 +412,22 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
             paginator = commands.Paginator(prefix="", suffix="", linesep="")
             paginator.add_line(f"__**Help Info {self.context.message.author.mention}:**__\n\n")
             for category in sorted(categories.keys()):
+                if categories[category] == ["`help`"]:
+                    continue  # Skip categories where `help` is the only visible prefix command.
                 paginator.add_line(f"**{category.title()}**\n")
                 category_commands = [f"{com}, " for com in sorted(categories[category])]
                 category_commands[-1] = f"{category_commands[-1][:-2]}\n\n"  # Replace ', ' with '\n\n' on last command
                 for com in category_commands:
                     paginator.add_line(self.remove_mentions(com))
             end = "1 = In DMs only.\n" if any("¹" in elem for cat in categories.values() for elem in cat) else ""
-            end += f"Use `{self.context.bot.get_bot_prefix()}help <COMMAND>` for more info on individual commands."
+            prefix = "/" if self.context.interaction else self.context.bot.get_bot_prefix()
+            end += f"Use `{prefix}help <COMMAND>` for more info on individual commands."
+            if self.context.bot.core_commands_mode in ("slash", "both"):
+                end += f"\nSlash commands are discoverable via Discord's built-in UI. Use `{prefix}help <COMMAND>` "
+                end += "for details."
             paginator.add_line(end)
             for page in paginator.pages:
-                await self.get_destination().send(page)
+                await self._deliver(page)
 
         async def send_bot_help(self, mapping, /):
             """Function that triggers when help command is used without command."""
@@ -366,9 +439,13 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
 
         async def send_command_help(self, command_object: Command[Any, ..., Any], /):
             """Function that triggers when help command is used with a command."""
-            while command_object.qualified_name not in self.context.bot.help and len(command_object.parents):
+            while (
+                command_object.qualified_name not in self.context.bot.help
+                and command_object.qualified_name not in self.context.bot.slash_help
+                and len(command_object.parents)
+            ):
                 command_object = command_object.parents[0]  # Get parent in case it has help text.
-            await self._send_help_entry(command_object)
+            await self._send_help_entry(command_object.qualified_name)
 
         async def send_cog_help(self, cog: Cog, /):
             """Function that triggers when help command is used with a cog."""
@@ -377,17 +454,34 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
 
         async def send_group_help(self, group: Group[Any, ..., Any], /):
             """Function that triggers when help command is used with a group."""
-            while group.qualified_name not in self.context.bot.help and len(group.parents):
+            while (
+                group.qualified_name not in self.context.bot.help
+                and group.qualified_name not in self.context.bot.slash_help
+                and len(group.parents)
+            ):
                 group = group.parents[0]  # Get parent in case it has help text.
-            await self._send_help_entry(group)
+            await self._send_help_entry(group.qualified_name)
 
         def subcommand_not_found(self, command: Command[Any, ..., Any], string: str, /):
             """Function that returns content of error when subcommand invalid."""
+            self._is_subcommand_error = True
             return f"The `{command.qualified_name}` command has no subcommand called `{string}`."
 
         def command_not_found(self, string: str, /):
             """Function that returns content of error when command not found."""
-            return f"No command called `{string}` found."
+            self._is_subcommand_error = False
+            return string  # Return raw name; send_error_message handles lookup and formatting.
+
+        async def send_error_message(self, error: str | None, /):
+            """Send help error message, checking slash_help before reporting not found."""
+            if error is None:
+                return
+            if error in self.context.bot.help or error in self.context.bot.slash_help:
+                await self._send_help_entry(error)
+            elif not self._is_subcommand_error:
+                await self._deliver(f"No command called `{error}` found.")
+            else:
+                await self._deliver(error)
 
     def __init__(self, database_credentials: DatabaseCredentials, *args, **kwargs):
         """Initialization function loading all necessary information for TravusBotBase class."""
@@ -397,6 +491,7 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
         self.last_error: str | None = None
         self.extension_ctx: Context | Interaction | None = None
         self.help: dict[str, TravusBotBase._HelpInfo] = {}
+        self.slash_help: dict[str, TravusBotBase._HelpInfo] = {}
         self.modules: dict[str, TravusBotBase._ModuleInfo] = {}
         self.is_connected: int = 0
         self.help_command = self._CustomHelp()
@@ -590,8 +685,10 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
 
     async def _apply_core_commands_mode(self, sync: bool = True):
         """Register/unregister core slash and prefix commands based on core_commands_mode setting."""
-        # Slash commands: add or remove from tree
+        # Slash commands: add or remove from tree (top-level only; subcommands follow their parent group).
         for cmd in self._core_slash_commands:
+            if cmd.parent is not None:
+                continue
             if self.core_commands_mode in ("slash", "both"):
                 if self.tree.get_command(cmd.name) is None:
                     self.tree.add_command(cmd)
@@ -678,27 +775,45 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
     ):
         """Function that is used to add help info to the bot correctly. Used to minimize developmental errors. Command
         should be either a prefix command, prefix command group, app command, or app command group."""
-        self.help[command.qualified_name] = self._HelpInfo(
-            self.get_bot_prefix, command, category, restrictions, examples
-        )
+        info = self._HelpInfo(self.get_bot_prefix, command, category, restrictions, examples)
+        if isinstance(command, (app_commands.Command, app_commands.Group)):
+            self.slash_help[command.qualified_name] = info
+        else:
+            self.help[command.qualified_name] = info
 
-    def remove_command_help(self, command: Command | type[Cog] | str | list[Command | str]):
+    def remove_command_help(
+        self,
+        command: (
+            Command
+            | app_commands.Command
+            | app_commands.Group
+            | type[Cog]
+            | str
+            | list[Command | app_commands.Command | app_commands.Group | str]
+        ),
+    ):
         """Function that is used to remove command help info from the bot correctly. Used to minimize developmental
         errors."""
         if isinstance(command, list):  # Remove all in list, if list is passed.
             for com in command:
-                name = com.qualified_name if isinstance(com, Command) else com
-                if name in self.help:
-                    del self.help[name]
-        elif isinstance(command, Command):  # Remove single if only one is passed.
-            if command.qualified_name in self.help:
-                del self.help[command.qualified_name if isinstance(command, Command) else command]
-        elif issubclass(command.__class__, Cog) and not isinstance(command, str):
-            for com in command(self).walk_commands():
-                if com.qualified_name in self.help:
-                    del self.help[com.qualified_name]
-        elif isinstance(command, str) and command in self.help:
-            del self.help[command]
+                if isinstance(com, (app_commands.Command, app_commands.Group)):
+                    self.slash_help.pop(com.qualified_name, None)
+                else:
+                    name = com.qualified_name if isinstance(com, Command) else com
+                    self.help.pop(name, None)
+        elif isinstance(command, (app_commands.Command, app_commands.Group)):
+            self.slash_help.pop(command.qualified_name, None)
+        elif isinstance(command, Command):
+            self.help.pop(command.qualified_name, None)
+        elif isinstance(command, type) and issubclass(command, Cog):
+            cog_instance = command(self)
+            for com in cog_instance.walk_commands():
+                self.help.pop(com.qualified_name, None)
+            for com in cog_instance.walk_app_commands():
+                self.slash_help.pop(com.qualified_name, None)
+        elif isinstance(command, str):
+            self.help.pop(command, None)
+            self.slash_help.pop(command, None)
 
     async def update_status(
         self,
