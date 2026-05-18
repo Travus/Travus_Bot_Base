@@ -590,8 +590,11 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
     async def _load_default_modules(self):
         """Load default modules once bot has cached."""
 
+        # pylint: disable-next=too-many-return-statements
         async def load_module(default_list: list[str], module: str, propagate=False) -> bool:
             """Attempt to load a module, and recursively attempts to load dependencies."""
+            if f"modules.{module}" in self.extensions:
+                return True
             if module not in default_list:
                 return False
             default_list.remove(module)
