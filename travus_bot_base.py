@@ -56,7 +56,7 @@ class DependencyError(commands.CommandError):
         super().__init__(self.message)
 
 
-class ConfigError(commands.CommandError):
+class ConfigError(commands.CommandError, app_commands.CheckFailure):  # pylint: disable=too-many-ancestors
     """Custom exception raised when missing config options."""
 
     def __init__(self, message: str = ""):
@@ -66,23 +66,41 @@ class ConfigError(commands.CommandError):
 
 
 def required_config(requirements: Iterable[str]):
-    """Function that makes sure config options are set."""
+    """Decorator that makes sure config options are set. Works on prefix, slash, and hybrid commands."""
+    requirements = list(requirements)
+    user_message = (
+        "This command requires the following missing configuration options to be set: {missing}.\n"
+        "Please contact an administrator for assistance."
+    )
 
-    async def predicate(predicate_ctx: Context) -> bool:
-        if predicate_ctx.command is None:
+    def _missing(config: Iterable[str]) -> str:
+        return ", ".join(f"`{requirement}`" for requirement in requirements if requirement not in config)[:1850]
+
+    async def prefix_predicate(ctx: Context) -> bool:
+        if ctx.command is None:
             BOT_LOG.error("Required config was used on non-command, this is not supported")
             return True
-        missing = [f"`{requirement}`" for requirement in requirements if requirement not in predicate_ctx.bot.config]
-        missing_str = ", ".join(missing)[:1850]
+        missing_str = _missing(ctx.bot.config)
         if missing_str:
-            await predicate_ctx.send(
-                f"This command requires the following missing configuration options to be set: {missing_str}.\nPlease "
-                "contact an administrator for assistance."
-            )
-            raise ConfigError(f"Command {predicate_ctx.command.qualified_name} missing config options: {missing_str}")
-        return not missing_str
+            await ctx.send(user_message.format(missing=missing_str))
+            raise ConfigError(f"Command {ctx.command.qualified_name} missing config options: {missing_str}")
+        return True
 
-    return commands.check(predicate)
+    async def slash_predicate(interaction: Interaction) -> bool:
+        bot: TravusBotBase = interaction.client  # type: ignore[assignment]
+        command_name = interaction.command.qualified_name if interaction.command else "unknown"
+        missing_str = _missing(getattr(bot, "config", {}))
+        if missing_str:
+            await bot.send_response(interaction, user_message.format(missing=missing_str), ephemeral=True)
+            raise ConfigError(f"Command /{command_name} missing config options: {missing_str}")
+        return True
+
+    def decorator(func):
+        func = commands.check(prefix_predicate)(func)
+        func = app_commands.check(slash_predicate)(func)
+        return func
+
+    return decorator
 
 
 class DatabaseCredentials:
