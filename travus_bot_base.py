@@ -615,14 +615,9 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
                 self.modules = old_modules
                 if propagate:
                     raise
-                deps_loaded = False
-                if isinstance(e.original, DependencyError):
-                    deps_loaded = True
-                    for dependency in e.original.missing_dependencies:
-                        if not await load_module(default_list, dependency):
-                            deps_loaded = False
-                            break
-                if deps_loaded:
+                if isinstance(e.original, DependencyError) and await all_deps_loaded(
+                    default_list, e.original.missing_dependencies
+                ):
                     try:
                         default_list.append(module)
                         if await load_module(default_list, module, True):
@@ -643,6 +638,13 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
                 self.last_module_error = f"The `{module}` module failed while loading. The error was:\n\n{e!s}"
                 return False
             self.log.info(f"Default module '{module}' loaded.")
+            return True
+
+        async def all_deps_loaded(default_list: list[str], deps: Iterable[str]) -> bool:
+            """Recursively load each dep; return True iff every load succeeded (short-circuits)."""
+            for dep in deps:
+                if not await load_module(default_list, dep):
+                    return False
             return True
 
         async with self.db.acquire() as conn:
