@@ -1,2 +1,2 @@
-pyyaml
-requests
+pyyaml>=6.0.3,<7
+requests>=2.34.2,<3
