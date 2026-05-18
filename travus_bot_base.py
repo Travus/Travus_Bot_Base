@@ -615,12 +615,17 @@ class TravusBotBase(Bot):  # pylint: disable=too-many-ancestors, too-many-instan
                 self.modules = old_modules
                 if propagate:
                     raise
-                if isinstance(e.original, DependencyError) and all(
-                    load_module(default_list, dependency) for dependency in e.original.missing_dependencies
-                ):
+                deps_loaded = False
+                if isinstance(e.original, DependencyError):
+                    deps_loaded = True
+                    for dependency in e.original.missing_dependencies:
+                        if not await load_module(default_list, dependency):
+                            deps_loaded = False
+                            break
+                if deps_loaded:
                     try:
                         default_list.append(module)
-                        if load_module(default_list, module, True):
+                        if await load_module(default_list, module, True):
                             return True
                     except Exception as ee:
                         e = ee
