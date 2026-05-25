@@ -1070,8 +1070,15 @@ class CoreFunctionalityCog(commands.Cog):
     async def slash_default_add_autocomplete(
         self, _interaction: Interaction, current: str
     ) -> list[app_commands.Choice[str]]:
-        """Autocomplete for /default add — shows available modules on disk."""
-        available = [mod.replace(".py", "") for mod in listdir("modules") if mod.endswith(".py")]
+        """Autocomplete for /default add — shows modules on disk that aren't already defaults."""
+        async with self.bot.db.acquire() as conn:
+            result = await conn.fetch("SELECT module FROM default_modules")
+        defaults = {val["module"] for val in result}
+        available = [
+            mod.replace(".py", "")
+            for mod in listdir("modules")
+            if mod.endswith(".py") and mod.replace(".py", "") not in defaults
+        ]
         return [app_commands.Choice(name=name, value=name) for name in available if current.lower() in name.lower()][
             :25
         ]
